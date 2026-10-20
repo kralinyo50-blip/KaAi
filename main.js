@@ -1,0 +1,374 @@
+const { app, BrowserWindow, ipcMain, dialog, shell, globalShortcut } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const { exec, spawn } = require('child_process');
+const si = require('systeminformation');
+let Store;
+try {
+  Store = require('electron-store');
+} catch (e) {
+  Store = null;
+}
+
+// Store için fallback
+let store;
+if (Store) {
+  store = new Store({
+    name: 'kaai-settings',
+    defaults: {
+      geminiApiKey: '',
+      geminiModel: 'gemini-2.0-flash',
+      voiceRate: 1.0,
+      voicePitch: 1.0,
+      micEnabled: true,
+      theme: 'dark',
+      location: 'Dolmabahçe, Istanbul',
+      founderName: 'Kaan Özkurt'
+    }
+  });
+} else {
+  const storePath = path.join(app.getPath('userData'), 'kaai-settings.json');
+  store = {
+    get: (key, def) => {
+      try {
+        if (!fs.existsSync(storePath)) return def;
+        const data = JSON.parse(fs.readFileSync(storePath, 'utf8'));
+        return key ? (data[key] ?? def) : data;
+      } catch { return def; }
+    },
+    set: (key, val) => {
+      try {
+        let data = {};
+        if (fs.existsSync(storePath)) data = JSON.parse(fs.readFileSync(storePath, 'utf8'));
+        if (typeof key === 'object') Object.assign(data, key);
+        else data[key] = val;
+        fs.mkdirSync(path.dirname(storePath), { recursive: true });
+        fs.writeFileSync(storePath, JSON.stringify(data, null, 2));
+      } catch {}
+    },
+    clear: () => { try { fs.unlinkSync(storePath); } catch {} }
+  };
+}
+
+let mainWindow;
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1366,
+    height: 768,
+    minWidth: 1024,
+    minHeight: 600,
+    backgroundColor: '#000000',
+    show: false,
+    frame: true,
+    titleBarStyle: 'default',
+    icon: fs.existsSync(path.join(__dirname, 'assets/icon.png')) ? path.join(__dirname, 'assets/icon.png') : undefined,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      enableRemoteModule: false,
+      webSecurity: true
+    }
+  });
+
+  mainWindow.loadFile(path.join(__dirname, 'src/index.html'));
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    mainWindow.maximize();
+  });
+
+  // Dev modunda DevTools
+  if (process.argv.includes('--dev')) {
+    mainWindow.webContents.openDevTools();
+  }
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+}
+
+app.whenReady().then(() => {
+  createWindow();
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+
+  // Global shortcut: Alt+Space ile mikrofon toggle
+  try {
+    globalShortcut.register('Alt+Space', () => {
+      if (mainWindow) mainWindow.webContents.send('toggle-mic-shortcut');
+    });
+  } catch {}
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
+});
+
+// ==================== IPC HANDLERS ====================
+
+// Ayarlar
+ipcMain.handle('get-settings', () => store.get());
+ipcMain.handle('save-settings', (e, settings) => {
+  Object.entries(settings).forEach(([k, v]) => store.set(k, v));
+  return true;
+});
+ipcMain.handle('get-setting', (e, key) => store.get(key));
+ipcMain.handle('set-setting', (e, key, value) => { store.set(key, value); return true; });
+
+// Sistem bilgileri
+ipcMain.handle('get-system-info', async () => {
+  try {
+    const cpu = await si.currentLoad();
+    const mem = await si.mem();
+    const disk = await si.fsSize();
+    const battery = await si.battery().catch(() => ({ percent: 100, isCharging: false }));
+    const cpuTemp = await si.cpuTemperature().catch(() => ({ main: 0 }));
+
+    // Disk doluluk ortalaması
+    let diskUsage = 0;
+    if (disk && disk.length > 0) {
+      const mainDisk = disk.find(d => d.mount === '/' || d.mount === 'C:') || disk[0];
+      diskUsage = Math.round(mainDisk.use);
+    }
+
+    return {
+      cpu: Math.round(cpu.currentLoad || cpu.avgLoad || 0),
+      ram: Math.round(((mem.active / mem.total) * 100)),
+      ramTotal: Math.round(mem.total / (1024*1024*1024)),
+      ramUsed: Math.round(mem.active / (1024*1024*1024*1024) * 10) / 10,
+      disk: diskUsage,
+      battery: battery.percent || 100,
+      isCharging: battery.isCharging || false,
+      cpuTemp: cpuTemp.main || 0,
+      platform: os.platform(),
+      hostname: os.hostname(),
+      uptime: os.uptime()
+    };
+  } catch (err) {
+    return { cpu: 0, ram: 0, disk: 0, battery: 100, error: err.message };
+  }
+});
+
+// Dosya işlemleri - TAM ERİŞİM
+ipcMain.handle('fs-list-dir', async (e, dirPath) => {
+  try {
+    const target = dirPath || os.homedir();
+    const entries = await fs.promises.readdir(target, { withFileTypes: true });
+    const result = await Promise.all(entries.map(async entry => {
+      const fullPath = path.join(target, entry.name);
+      let stats;
+      try { stats = await fs.promises.stat(fullPath); } catch { stats = null; }
+      return {
+        name: entry.name,
+        path: fullPath,
+        isDirectory: entry.isDirectory(),
+        isFile: entry.isFile(),
+        size: stats ? stats.size : 0,
+        modified: stats ? stats.mtime : null
+      };
+    }));
+    return { success: true, path: target, entries: result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('fs-read-file', async (e, filePath) => {
+  try {
+    const content = await fs.promises.readFile(filePath, 'utf8');
+    return { success: true, content };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('fs-write-file', async (e, filePath, content) => {
+  try {
+    await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.promises.writeFile(filePath, content, 'utf8');
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('fs-create-dir', async (e, dirPath) => {
+  try {
+    await fs.promises.mkdir(dirPath, { recursive: true });
+    return { success: true };
+  } catch (err) { return { success: false, error: err.message }; }
+});
+
+ipcMain.handle('fs-delete', async (e, targetPath) => {
+  try {
+    const stats = await fs.promises.stat(targetPath);
+    if (stats.isDirectory()) await fs.promises.rm(targetPath, { recursive: true, force: true });
+    else await fs.promises.unlink(targetPath);
+    return { success: true };
+  } catch (err) { return { success: false, error: err.message }; }
+});
+
+ipcMain.handle('fs-rename', async (e, oldPath, newPath) => {
+  try {
+    await fs.promises.rename(oldPath, newPath);
+    return { success: true };
+  } catch (err) { return { success: false, error: err.message }; }
+});
+
+ipcMain.handle('fs-open', async (e, targetPath) => {
+  try {
+    const result = await shell.openPath(targetPath);
+    if (result) return { success: false, error: result };
+    return { success: true };
+  } catch (err) { return { success: false, error: err.message }; }
+});
+
+ipcMain.handle('fs-open-external', async (e, url) => {
+  try { await shell.openExternal(url); return { success: true }; }
+  catch (err) { return { success: false, error: err.message }; }
+});
+
+ipcMain.handle('fs-select-file', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile', 'openDirectory', 'multiSelections']
+  });
+  return result;
+});
+
+ipcMain.handle('fs-save-dialog', async (e, defaultPath) => {
+  const result = await dialog.showSaveDialog(mainWindow, { defaultPath });
+  return result;
+});
+
+// Komut çalıştırma
+ipcMain.handle('exec-command', async (e, command, cwd) => {
+  return new Promise(resolve => {
+    exec(command, { cwd: cwd || os.homedir(), timeout: 30000, windowsHide: true }, (error, stdout, stderr) => {
+      resolve({
+        success: !error,
+        stdout: stdout?.slice(0, 10000),
+        stderr: stderr?.slice(0, 10000),
+        error: error?.message
+      });
+    });
+  });
+});
+
+ipcMain.handle('open-app', async (e, appName) => {
+  const commands = {
+    notepad: 'notepad',
+    hesap: 'calc',
+    calculator: 'calc',
+    chrome: 'start chrome',
+    explorer: 'explorer .',
+    cmd: 'start cmd',
+    vscode: 'code',
+    spotify: 'start spotify',
+    word: 'start winword',
+    excel: 'start excel'
+  };
+  const cmd = commands[appName.toLowerCase()] || `start ${appName}`;
+  return new Promise(resolve => {
+    exec(cmd, (err, stdout, stderr) => {
+      resolve({ success: !err, error: err?.message, stdout, stderr });
+    });
+  });
+});
+
+// Hava durumu için basit proxy (CORS bypass gerekirse)
+ipcMain.handle('fetch-url', async (e, url) => {
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    return { success: true, data };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// Gemini API çağrısı (API anahtarı main process'te gizli tutulabilir ama renderer'dan da yapılıyor)
+ipcMain.handle('gemini-chat', async (e, messages, apiKey) => {
+  try {
+    const key = apiKey || store.get('geminiApiKey');
+    if (!key) return { success: false, error: 'API anahtarı ayarlanmamış. Lütfen AYARLAR bölümünden Google Gemini API anahtarınızı girin.' };
+
+    const model = store.get('geminiModel') || 'gemini-2.0-flash';
+
+    // Kurucu bilgisi ve kişilik sistem promptu
+    const systemPrompt = `Sen KaAi adında Jarvis benzeri bir masaüstü yapay zeka asistanısın.
+- Her cevabına mutlaka "Efendim," diyerek başla.
+- Kurucun sorulduğunda cevabın: "Kurucum Kaan Özkurt'tur." Asla başka bir isim söyleme.
+- Seni kim yaptı, seni kim geliştirdi gibi sorulara da "Beni Kaan Özkurt geliştirdi." de.
+- Erkek sesiyle konuşuyormuş gibi, nazik, saygılı, yardımcı ve zeki bir asistansın.
+- Türkçe konuş, kullanıcı Türkçe konuşuyor.
+- Kısa, net ve samimi cevaplar ver. Gereksiz uzunluk yapma.
+- Masaüstü asistanısın: dosya işlemleri, sistem bilgisi, zamanlayıcı, hava durumu gibi konularda yardımcı ol.
+- Kullanıcı sesli konuşuyor, sen de sesli cevap veriyormuş gibi doğal ol.`;
+
+    // Gemini formatına çevir
+    const contents = messages.map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }]
+    }));
+
+    // En başa sistem promptu enjekte et (ilk kullanıcı mesajına ekle)
+    if (contents.length > 0 && contents[0].role === 'user') {
+      contents[0].parts[0].text = systemPrompt + "\n\nKullanıcı: " + contents[0].parts[0].text;
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents,
+        generationConfig: {
+          temperature: 0.8,
+          topP: 0.95,
+          maxOutputTokens: 1024
+        },
+        safetySettings: [
+          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
+        ]
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      return { success: false, error: data.error?.message || `API hatası: ${res.status}` };
+    }
+
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Efendim, cevap oluşturamadım.";
+    // Efendim ile başlamıyorsa ekle
+    let finalText = text.trim();
+    if (!finalText.toLowerCase().startsWith('efendim')) {
+      finalText = 'Efendim, ' + finalText.charAt(0).toLowerCase() + finalText.slice(1);
+    }
+
+    return { success: true, text: finalText };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// Pencere kontrolleri
+ipcMain.handle('window-minimize', () => mainWindow.minimize());
+ipcMain.handle('window-maximize', () => {
+  if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  else mainWindow.maximize();
+});
+ipcMain.handle('window-close', () => mainWindow.close());
+ipcMain.handle('get-app-version', () => app.getVersion());
+ipcMain.handle('get-home-dir', () => os.homedir());

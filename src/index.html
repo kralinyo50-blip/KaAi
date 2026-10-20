@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KaAI - ALPAI</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+  <!-- Top Bar -->
+  <header class="top-bar">
+    <div class="top-left">
+      <span class="logo">ALPAI</span>
+      <span class="status-badge speaking" id="speakingBadge">KONUŞUYOR</span>
+    </div>
+    <div class="top-center">
+      <!-- boşluk / grid çizgileri için -->
+    </div>
+    <div class="top-right">
+      <span class="indicator mic-on" id="micIndicator"><span class="dot"></span> MİKROFON AÇIK</span>
+      <span class="indicator cam-off"><span class="dot off"></span> KAMERA KAPALI</span>
+      <button class="top-btn" id="btnModels">AI MODELLERİ</button>
+      <button class="top-btn" id="btnSettings">AYARLAR</button>
+      <span class="clock-top" id="clockTop">02:49</span>
+      <div class="window-controls">
+        <button class="win-btn" id="winMin">—</button>
+        <button class="win-btn" id="winMax">□</button>
+        <button class="win-btn close" id="winClose">✕</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="main-layout">
+    <!-- LEFT PANEL -->
+    <aside class="left-panel">
+      <!-- ZAMAN -->
+      <div class="panel-section">
+        <div class="circular-widget large">
+          <svg class="circle-svg" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="42" class="bg" />
+            <circle cx="50" cy="50" r="42" class="progress time-progress" id="timeProgress" />
+            <circle cx="50" cy="50" r="30" class="inner" />
+          </svg>
+          <div class="circle-content">
+            <span class="big-time" id="bigTime">02:49</span>
+          </div>
+          <div class="tick-marks"></div>
+        </div>
+        <div class="section-label cyan">ZAMAN</div>
+        <div class="section-sub" id="dateLabel">SALI · 20 EKİM</div>
+      </div>
+
+      <!-- SİSTEM -->
+      <div class="panel-section system-section">
+        <div class="circular-widget small">
+          <svg class="circle-svg" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="42" class="bg" />
+            <circle cx="50" cy="50" r="42" class="progress" id="cpuProgress" />
+          </svg>
+          <div class="circle-content">
+            <span class="cpu-val" id="cpuVal">66</span>
+            <span class="cpu-lbl">CPU %</span>
+          </div>
+        </div>
+        <div class="system-stats">
+          <div class="section-label cyan">SİSTEM</div>
+          <div class="stat-row"><span class="s-label">PİL</span><span class="s-val" id="batteryVal">%100 · şarj</span></div>
+          <div class="stat-row"><span class="s-label">RAM</span><span class="s-val" id="ramVal">%59</span></div>
+          <div class="stat-row"><span class="s-label">DİSK</span><span class="s-val" id="diskVal">%73 dolu</span></div>
+        </div>
+      </div>
+
+      <!-- ZAMANLAYICI -->
+      <div class="panel-section timer-section">
+        <div class="circular-widget medium">
+          <svg class="circle-svg" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="42" class="bg" />
+            <circle cx="50" cy="50" r="42" class="progress timer-progress" id="timerProgress" />
+          </svg>
+          <div class="circle-content column">
+            <span class="timer-digits" id="timerDigits">--:--</span>
+            <span class="timer-status" id="timerStatus">HAZIR</span>
+          </div>
+        </div>
+        <div class="section-label cyan">ZAMANLAYICI</div>
+        <div class="section-sub small">“ON DAKİKALIK ZAMANLAYICI KUR”<br>DE</div>
+        <div class="timer-buttons">
+          <button class="t-btn" data-min="1">1 DK</button>
+          <button class="t-btn" data-min="5">5 DK</button>
+          <button class="t-btn" data-min="10">10 DK</button>
+          <button class="t-btn" data-min="25">25 DK</button>
+        </div>
+        <button class="t-btn full" id="btnChronometer"><span class="icon">⏱</span> KRONOMETRE</button>
+      </div>
+    </aside>
+
+    <!-- CENTER - ORB -->
+    <main class="center-stage">
+      <div class="grid-bg"></div>
+      <div class="orb-container" id="orbContainer">
+        <div class="orb-rings">
+          <div class="ring ring1"></div>
+          <div class="ring ring2"></div>
+          <div class="ring ring3"></div>
+          <div class="ring ring4"></div>
+        </div>
+        <div class="orb-core" id="orbCore">
+          <div class="orb-glow"></div>
+          <div class="orb-dot"></div>
+          <canvas id="orbCanvas" width="400" height="400"></canvas>
+        </div>
+        <div class="orb-arc arc-left"></div>
+        <div class="orb-arc arc-right"></div>
+        <div class="orb-ticks"></div>
+      </div>
+      <div class="center-status" id="centerStatus">Dinliyorum, efendim...</div>
+      <div class="transcript" id="transcript">
+        <div class="transcript-user" id="transcriptUser"></div>
+        <div class="transcript-ai" id="transcriptAi">Efendim, size nasıl yardımcı olabilirim?</div>
+      </div>
+    </main>
+
+    <!-- RIGHT PANEL -->
+    <aside class="right-panel">
+      <!-- Hava -->
+      <div class="weather-card">
+        <div class="weather-top">
+          <span class="temp-big">17°</span>
+          <div class="weather-loc">
+            <span class="loc-name">DOLMABAHÇE</span>
+            <span class="loc-desc">bulutlu</span>
+          </div>
+          <span class="weather-icon">☁</span>
+        </div>
+        <div class="weather-range">
+          <span>17°</span>
+          <div class="range-bar"><div class="range-fill" style="left:20%; width:35%"></div><span class="range-dot" style="left:35%"></span></div>
+          <span>20°</span>
+        </div>
+      </div>
+      <div class="section-label cyan small">HAVA</div>
+
+      <!-- Takvim -->
+      <div class="panel-card">
+        <div class="section-label cyan small">TAKVİM</div>
+        <div class="big-zero">0 <span>BUGÜN</span></div>
+        <div class="mini-calendar" id="miniCalendar"></div>
+        <div class="hint">Bugün takviminizde etkinlik yok.</div>
+      </div>
+
+      <!-- Anımsatıcılar -->
+      <div class="panel-card">
+        <div class="section-label cyan small">ANIMSATICILAR</div>
+        <div class="big-zero">0 <span>AÇIK</span></div>
+        <div class="mini-calendar"></div>
+        <div class="hint">Bekleyen anımsatıcı yok.</div>
+        <div id="remindersList" class="reminders-list"></div>
+      </div>
+
+      <!-- Harita -->
+      <div class="map-card">
+        <div id="map"></div>
+        <div class="map-coords">41.033° 28.983°</div>
+      </div>
+      <div class="section-label cyan small">HARİTA</div>
+      <div class="map-label">DOLMABAHÇE · TURKEY</div>
+      <div class="map-copy">© OpenStreetMap katkıcıları</div>
+    </aside>
+  </div>
+
+  <!-- Bottom Bar -->
+  <footer class="bottom-bar">
+    <div class="bottom-left">
+      <button class="attach-btn" id="btnAttach" title="Dosya ekle">📎</button>
+      <span class="input-hint">› KONUŞ YA DA YAZ</span>
+    </div>
+    <div class="bottom-center">
+      <input type="text" id="textInput" placeholder="Bir şeyler söyleyin veya yazın... (Enter ile gönder)" autocomplete="off">
+      <button class="mic-btn" id="micBtn" title="Konuş (Alt+Space)">
+        <span class="mic-icon">🎤</span>
+      </button>
+      <button class="send-btn" id="sendBtn">GÖNDER</button>
+    </div>
+    <div class="bottom-right">
+      <span class="mode-toggle" id="modeToggle">.... / YAZ</span>
+      <button class="info-btn" id="infoBtn">ⓘ</button>
+      <button class="close-btn" id="bottomClose">⏻ KAPAT</button>
+    </div>
+  </footer>
+
+  <!-- SETTINGS MODAL -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>⚙ AYARLAR</h2>
+        <button class="modal-close" id="closeSettings">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Google Gemini API Anahtarı *</label>
+          <input type="password" id="apiKeyInput" placeholder="AIza...">
+          <small><a href="#" id="howToGetKey">Nasıl alırım?</a> — <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a> adresinden ücretsiz alın.</small>
+        </div>
+        <div class="form-group">
+          <label>Model</label>
+          <select id="modelSelect">
+            <option value="gemini-2.0-flash">gemini-2.0-flash (önerilen)</option>
+            <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite</option>
+            <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+            <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Ses Hızı</label>
+          <input type="range" id="voiceRate" min="0.5" max="1.5" step="0.1" value="1">
+          <span id="voiceRateVal">1.0</span>
+        </div>
+        <div class="form-group">
+          <label>Konum (Hava Durumu)</label>
+          <input type="text" id="locationInput" placeholder="Dolmabahçe, Istanbul">
+        </div>
+        <div class="form-group checkbox">
+          <label><input type="checkbox" id="autoStartMic" checked> Başlangıçta mikrofonu aç</label>
+        </div>
+        <div class="form-group checkbox">
+          <label><input type="checkbox" id="alwaysEfendim" checked> Her cevap "Efendim," ile başlasın</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn primary" id="saveSettingsBtn">KAYDET</button>
+        <button class="btn" id="cancelSettingsBtn">İPTAL</button>
+        <button class="btn danger outline" id="clearSettingsBtn">Ayarları Sıfırla</button>
+      </div>
+      <div class="modal-hint">
+        <strong>Kurucu:</strong> Kaan Özkurt · <strong>Asistan:</strong> ALPAI (KaAi)<br>
+        <small>API anahtarınız yalnızca bu cihazda saklanır, dışarı gönderilmez.</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILE EXPLORER MODAL -->
+  <div class="modal-overlay" id="fileModal">
+    <div class="modal large">
+      <div class="modal-header">
+        <h2>📁 DOSYA GEZGİNİ - Tam Erişim</h2>
+        <button class="modal-close" id="closeFileModal">✕</button>
+      </div>
+      <div class="file-toolbar">
+        <button class="btn small" id="fileUp">⬆ Üst Klasör</button>
+        <span class="file-path" id="filePath">C:\</span>
+        <button class="btn small" id="fileRefresh">↻ Yenile</button>
+        <button class="btn small primary" id="fileSelectBtn">📂 Klasör Seç</button>
+      </div>
+      <div class="file-list" id="fileList"></div>
+      <div class="file-actions">
+        <input type="text" id="fileActionInput" placeholder="Yeni dosya adı veya komut yaz...">
+        <button class="btn small" id="btnFileOpen">Aç</button>
+        <button class="btn small" id="btnFileDelete">Sil</button>
+        <button class="btn small" id="btnFileNew">Yeni Dosya</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODELS MODAL -->
+  <div class="modal-overlay" id="modelsModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>🤖 AI MODELLERİ</h2>
+        <button class="modal-close" id="closeModels">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="model-card active">
+          <h3>ALPAI — KaAi (Aktif)</h3>
+          <p>Google Gemini 2.0 Flash tabanlı. Sesli, hızlı, Türkçe odaklı.</p>
+          <span class="badge">KURUCU: Kaan Özkurt</span>
+        </div>
+        <div class="model-card">
+          <h3>Gemini 1.5 Pro</h3>
+          <p>Uzun bağlam, derin analiz için.</p>
+          <button class="btn small" onclick="document.getElementById('modelSelect').value='gemini-1.5-pro'; document.getElementById('modelsModal').classList.remove('open');">Seç</button>
+        </div>
+        <p class="hint">Model değişimi AYARLAR'dan yapılır.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/bridge.js"></script>
+  <script src="js/app.js" type="module"></script>
+</body>
+</html>

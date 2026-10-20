@@ -1,0 +1,17 @@
+node_modules/
+dist/
+out/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+settings.json
+.env
+.DS_Store
+Thumbs.db
+electron-store/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+build/
+*.log
