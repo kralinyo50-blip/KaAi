@@ -53,19 +53,24 @@ async function loadSettings() {
     if (window.kaaiAPI) settings = await window.kaaiAPI.getSettings();
     else settings = JSON.parse(localStorage.getItem('kaai-settings') || '{}');
 
-    // === Gemini 3 Migration ===
+    // === Gemini 3.1 Migration — 2.5 retired 20 Oct 2026 ===
     const MIGRATION = {
       'gemini-2.0-flash':'gemini-3.8-flash',
-      'gemini-2.0-flash-lite':'gemini-2.5-flash-lite',
-      'gemini-2.5-flash-preview-04-17':'gemini-2.5-flash',
-      'gemini-2.5-flash-preview-05-20':'gemini-2.5-flash',
-      'gemini-2.5-pro-preview-03-25':'gemini-2.5-pro',
-      'gemini-2.5-pro-preview-05-06':'gemini-2.5-pro',
-      'gemini-2.5-pro-preview-06-05':'gemini-2.5-pro',
-      'gemini-1.5-pro':'gemini-2.5-pro',
-      'gemini-1.5-flash':'gemini-2.5-flash',
-      'gemini-1.5-flash-8b':'gemini-2.5-flash-lite',
-      'gemini-1.5-flash-lite':'gemini-2.5-flash-lite'
+      'gemini-2.0-flash-lite':'gemini-3.5-flash-lite',
+      'gemini-2.5-flash-preview-04-17':'gemini-3.8-flash',
+      'gemini-2.5-flash-preview-05-20':'gemini-3.8-flash',
+      'gemini-2.5-pro-preview-03-25':'gemini-3.1-pro-preview',
+      'gemini-2.5-pro-preview-05-06':'gemini-3.1-pro-preview',
+      'gemini-2.5-pro-preview-06-05':'gemini-3.1-pro-preview',
+      'gemini-2.5-pro':'gemini-3.1-pro-preview',
+      'gemini-2.5-flash':'gemini-3.8-flash',
+      'gemini-2.5-flash-lite':'gemini-3.5-flash-lite',
+      'gemini-1.5-pro':'gemini-3.1-pro-preview',
+      'gemini-1.5-flash':'gemini-3.8-flash',
+      'gemini-1.5-flash-8b':'gemini-3.5-flash-lite',
+      'gemini-1.5-flash-lite':'gemini-3.5-flash-lite',
+      'gemini-3-pro-preview':'gemini-3.1-pro-preview',
+      'gemini-3-flash-preview':'gemini-3.8-flash'
     };
     if(settings.geminiModel && MIGRATION[settings.geminiModel]){
       settings.geminiModel = MIGRATION[settings.geminiModel];
@@ -74,8 +79,8 @@ async function loadSettings() {
       console.log('[KaAi] Model migrate:', settings.geminiModel);
     }
 
-    // Defaults — Gemini 3
-    settings.geminiModel = settings.geminiModel || 'gemini-3.8-flash';
+    // Defaults — Gemini 3.1
+    settings.geminiModel = settings.geminiModel || 'gemini-3.1-pro-preview';
     settings.voiceRate = settings.voiceRate ?? 0.92;
     settings.voicePitch = settings.voicePitch ?? 0.82;
     settings.autoStartMic = settings.autoStartMic ?? true;
@@ -245,7 +250,7 @@ function setupEventListeners() {
   $('#clearSettingsBtn')?.addEventListener('click', async ()=>{
     if(confirm('Tüm ayarlar silinsin mi?')){
       localStorage.removeItem('kaai-settings');
-      if(window.kaaiAPI) await window.kaaiAPI.saveSettings({ geminiApiKey:'', geminiModel:'gemini-3.8-flash', location:'Dolmabahçe, Istanbul' });
+      if(window.kaaiAPI) await window.kaaiAPI.saveSettings({ geminiApiKey:'', geminiModel:'gemini-3.1-pro-preview', location:'Dolmabahçe, Istanbul' });
       location.reload();
     }
   });
@@ -570,12 +575,12 @@ async function handleUserMessage(text){
   }
 }
 
-const FALLBACK_MODELS = ['gemini-3.8-flash','gemini-2.5-flash','gemini-3.5-flash','gemini-2.5-flash-lite'];
+const FALLBACK_MODELS = ['gemini-3.1-pro-preview','gemini-3.8-flash','gemini-3.5-flash','gemini-3.5-flash-lite'];
 async function directGeminiCall(messages, apiKey, model){
   if(!apiKey) return { success:false, error:'API anahtarı ayarlanmamış.' };
-  const m = migrateModelSafe(model) || 'gemini-3.8-flash';
+  const m = migrateModelSafe(model) || 'gemini-3.1-pro-preview';
   function migrateModelSafe(mm){
-    const map = {'gemini-2.0-flash':'gemini-3.8-flash','gemini-2.0-flash-lite':'gemini-2.5-flash-lite','gemini-2.5-flash-preview-04-17':'gemini-2.5-flash','gemini-2.5-pro-preview-03-25':'gemini-2.5-pro','gemini-1.5-pro':'gemini-2.5-pro','gemini-1.5-flash':'gemini-2.5-flash','gemini-1.5-flash-8b':'gemini-2.5-flash-lite'};
+    const map = {'gemini-2.0-flash':'gemini-3.8-flash','gemini-2.0-flash-lite':'gemini-3.5-flash-lite','gemini-2.5-flash-preview-04-17':'gemini-3.8-flash','gemini-2.5-pro-preview-03-25':'gemini-3.1-pro-preview','gemini-2.5-pro':'gemini-3.1-pro-preview','gemini-2.5-flash':'gemini-3.8-flash','gemini-2.5-flash-lite':'gemini-3.5-flash-lite','gemini-1.5-pro':'gemini-3.1-pro-preview','gemini-1.5-flash':'gemini-3.8-flash','gemini-1.5-flash-8b':'gemini-3.5-flash-lite','gemini-3-pro-preview':'gemini-3.1-pro-preview'};
     return map[mm] || mm;
   }
   const systemPrompt = `Sen KaAi adında, Kaan Özkurt tarafından geliştirilmiş, çok zeki ve zarif bir Jarvis benzeri masaüstü asistanısın.
@@ -616,7 +621,8 @@ YETENEKLER:
       const data = await res.json();
       if(!res.ok){
         const msg = data.error?.message || `API hatası ${res.status}`;
-        if(msg.includes('is not found') || msg.includes('not supported') || msg.includes('not found') || msg.includes('Unknown')){
+        const low = msg.toLowerCase();
+        if(low.includes('is not found') || low.includes('not supported') || low.includes('not found') || low.includes('unknown') || low.includes('no longer available') || low.includes('retired') || low.includes('deprecated')){
           lastErr = msg; continue;
         }
         return { success:false, error: msg };
@@ -637,8 +643,9 @@ function showTranscript(userText, aiText){
   if(aiEl){ aiEl.style.opacity='0'; setTimeout(()=> aiEl.style.opacity='1', 50); }
 }
 
-// === VOICE — Gerçek Mikrofon İzni + Audio Analyser + Robust Dinleme ===
+// === VOICE — Gerçek Mikrofon İzni + Audio Analyser + Robust Dinleme (FIX Oct 2026) ===
 let audioContext = null, analyser = null, micStream = null, analyserInterval = null;
+let speechReady = false;
 
 async function requestMicPermission(){
   const banner = $('#micPermissionBanner');
@@ -646,26 +653,31 @@ async function requestMicPermission(){
     if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
       throw new Error('getUserMedia yok');
     }
-    // Gerçek izin iste
+    const isInsecure = location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1' && !location.protocol.includes('file');
+    if(isInsecure) console.warn('[KaAi] Insecure context — getUserMedia may fail, trying anyway');
     const stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        channelCount: 1
-      }
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
     });
-    // Başarılı → HUD güncelle
     micStream = stream;
     if(banner) banner.classList.remove('show');
     $('#centerStatus').textContent = 'Mikrofon hazır, efendim — dinliyorum.';
     setupAudioAnalyser(stream);
+    speechReady = true;
+    try{ if(audioContext && audioContext.state==='suspended') await audioContext.resume(); }catch{}
+    try{ window.speechSynthesis.resume(); }catch{}
     return true;
   } catch(err){
-    console.warn('[KaAi] Mic izin reddedildi:', err);
+    console.warn('[KaAi] Mic izin reddedildi:', err.name, err.message);
     if(banner) banner.classList.add('show');
-    $('#centerStatus').textContent = 'Mikrofon izni verin, efendim — tek tık.';
-    $('#micPermissionBanner .mic-perm-text span').textContent = (err.name==='NotAllowedError' ? 'Tarayıcı engelledi — adres çubuğundan mikrofonu açın' : 'İzin gerekli, efendim');
+    $('#centerStatus').textContent = 'Mikrofon izni verin, efendim — İZİN VER & DİNLE butonuna tıklayın.';
+    const span = document.querySelector('#micPermissionBanner .mic-perm-text span');
+    if(span){
+      if(err.name==='NotAllowedError') span.textContent = 'Reddedildi — adres çubuğu 🔒 → Mikrofon: İzin ver';
+      else if(err.name==='NotFoundError') span.textContent = 'Mikrofon bulunamadı';
+      else if(err.message.includes('Only secure')) span.textContent = 'Güvenli bağlam gerekli — Electron ile çalıştırın veya localhost/https kullanın';
+      else span.textContent = 'İzin gerekli: '+err.message;
+    }
+    // IMPORTANT: dönen false artık dinlemeyi engellemeyecek (fallback STT)
     return false;
   }
 }
@@ -705,15 +717,35 @@ function setupAudioAnalyser(stream){
 function setupVoice(){
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   // İzin banner butonları
-  $('#enableMicBtn')?.addEventListener('click', async ()=>{
+  // Tek tıkla hem mic + TTS unlock
+  const unlockAudio = async()=>{
+    speechReady = true;
+    try{ window.speechSynthesis.resume(); }catch{}
+    try{
+      if(!audioContext) audioContext = new (window.AudioContext||window.webkitAudioContext)();
+      if(audioContext.state==='suspended') await audioContext.resume();
+    }catch{}
     const ok = await requestMicPermission();
-    if(ok && recognition){
-      autoListenEnabled = true;
-      updateAutoToggleUI();
-      startListening();
-    }
-  });
+    autoListenEnabled = true;
+    updateAutoToggleUI();
+    // micStream olsun olmasın STT başlat
+    if(recognition) startListening();
+    speak('Efendim, ses sisteminiz hazır. Sizi dinliyorum.');
+  };
+  $('#enableMicBtn')?.addEventListener('click', unlockAudio);
+  $('#testMicBtn')?.addEventListener('click', unlockAudio);
+  $('#testMicBtn2')?.addEventListener('click', unlockAudio);
   $('#dismissMicBtn')?.addEventListener('click', ()=> $('#micPermissionBanner')?.classList.remove('show'));
+  // İlk kullanıcı etkileşiminde AudioContext unlock
+  ['click','keydown','touchstart'].forEach(ev=>{
+    document.addEventListener(ev, async ()=>{
+      if(!speechReady){
+        speechReady = true;
+        try{ window.speechSynthesis.resume(); }catch{}
+        try{ if(!audioContext) audioContext = new (window.AudioContext||window.webkitAudioContext)(); if(audioContext.state==='suspended') await audioContext.resume(); }catch{}
+      }
+    }, {once:true});
+  });
 
   if(!SpeechRecognition){
     $('#micBtn').title = 'Tarayıcı ses tanımayı desteklemiyor, yazarak konuşun.';
@@ -770,24 +802,26 @@ function setupVoice(){
     if(display){
       $('#transcriptUser').textContent = `› ${display}`;
       $('#textInput').value = display;
-      // Gerçek ses yerine interim'i göster, analyser zaten ses seviyesini veriyor
+      const center = $('#centerStatus');
+      if(center) center.textContent = 'Algıladım: "'+display.slice(0,40)+'"...';
     }
     if(finalTranscript){
       clearTimeout(silenceTimer);
       const toSend = finalTranscript;
       finalTranscript = ''; interimTranscript = '';
+      console.log('[KaAi STT final]', toSend);
       handleUserMessage(toSend);
-      stopListening();
+      // stop sonrası auto-restart speak onend ile gelecek
     } else if(interimTranscript){
       clearTimeout(silenceTimer);
       silenceTimer = setTimeout(()=>{
-        if(interimTranscript && interimTranscript.length > 2){
+        if(interimTranscript && interimTranscript.length >= 1){
           const toSend = interimTranscript;
-          interimTranscript = '';
+          finalTranscript=''; interimTranscript = '';
+          console.log('[KaAi STT interim→send]', toSend);
           handleUserMessage(toSend);
-          stopListening();
         }
-      }, 1400);
+      }, 1100);
     }
   };
   recognition.onerror = (e)=>{
@@ -811,22 +845,30 @@ function setupVoice(){
 }
 
 async function startListening(){
-  // Önce izin iste (ilk sefer)
+  // Mic izni best-effort — başarısız olsa bile STT başlat
   if(!micStream){
-    const ok = await requestMicPermission();
-    if(!ok){
-      $('#micPermissionBanner')?.classList.add('show');
-      return;
-    }
+    try{ await requestMicPermission(); }catch{}
   }
-  if(!recognition || isListening) return;
+  if(!recognition) {
+    console.warn('[KaAi] recognition yok');
+    $('#centerStatus').textContent = 'Ses tanıma yok — Chrome/Edge veya Electron kullanın, efendim.';
+    return;
+  }
+  if(isListening) return;
   finalTranscript = ''; interimTranscript = '';
-  // AudioContext resume (browser politikaları)
-  if(audioContext && audioContext.state === 'suspended') await audioContext.resume().catch(()=>{});
-  try { recognition.start(); } catch(e){
+  try{ if(audioContext && audioContext.state === 'suspended') await audioContext.resume().catch(()=>{}); }catch{}
+  try{ window.speechSynthesis.resume(); }catch{}
+  try {
+    recognition.start();
+    console.log('[KaAi] STT started');
+  } catch(e){
+    console.warn('[KaAi STT start err]', e.message);
     if(e.message.includes('already started')){
-      try{ recognition.stop(); }catch{}; setTimeout(()=> { try{ recognition.start(); }catch{} }, 250);
-    } else console.warn(e);
+      try{ recognition.stop(); }catch{}; setTimeout(()=> { try{ recognition.start(); }catch{} }, 300);
+    } else {
+      // İzin engeli: banner göster ama toast ile yönlendir
+      if(e.message.includes('not-allowed')) $('#micPermissionBanner')?.classList.add('show');
+    }
   }
 }
 function stopListening(){
@@ -850,65 +892,74 @@ async function toggleListening(){
   }
 }
 
-// Derin erkek sesi - pitch düşük
+// Derin erkek sesi - pitch düşük (FIX: resume/unlock + fallback)
 function speak(text){
   if(!text) return;
+  // TTS unlock için her seferinde resume
+  try{ window.speechSynthesis.resume(); }catch{}
   window.speechSynthesis.cancel();
   isSpeaking = true;
 
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = 'tr-TR';
-  utter.rate = settings.voiceRate ?? 0.92; // biraz yavaş, daha tok
-  utter.pitch = settings.voicePitch ?? 0.82; // derin
-  utter.volume = 1;
+  const doSpeak = ()=>{
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'tr-TR';
+    utter.rate = settings.voiceRate ?? 0.92;
+    utter.pitch = settings.voicePitch ?? 0.82;
+    utter.volume = 1;
+    const voices = window.speechSynthesis.getVoices();
+    let chosen = null;
+    const trVoices = voices.filter(v=> v.lang.toLowerCase().includes('tr'));
+    if(trVoices.length){
+      chosen = trVoices.find(v=> /tolga/i.test(v.name)) ||
+               trVoices.find(v=> /murat/i.test(v.name)) ||
+               trVoices.find(v=> /emre/i.test(v.name)) ||
+               trVoices.find(v=> /google/i.test(v.name) && /türk/i.test(v.name)) ||
+               trVoices.find(v=> /microsoft/i.test(v.name)) ||
+               trVoices[0];
+    }
+    if(!chosen && voices.length){
+      chosen = voices.find(v=> /david|mark|alex|daniel/i.test(v.name)) || voices[0];
+    }
+    if(chosen) utter.voice = chosen;
+    // debug
+    console.log('[KaAi TTS]', text.slice(0,60), 'voice:', chosen?chosen.name:'default', 'voices:', voices.length);
+
+    utter.onstart = ()=> {
+      isSpeaking=true; setOrbSpeaking(true);
+      $('#speakingBadge').textContent='KONUŞUYOR';
+      $('#speakingBadge').classList.add('speaking');
+      $('#centerStatus').textContent='KaAi konuşuyor...';
+      if(isListening) stopListening();
+    };
+    utter.onend = ()=> {
+      isSpeaking=false; setOrbSpeaking(false);
+      $('#speakingBadge').textContent='HAZIR';
+      $('#speakingBadge').classList.remove('speaking');
+      $('#centerStatus').textContent = autoListenEnabled ? 'Dinliyorum, efendim... (otomatik)' : 'Hazır, efendim...';
+      if(autoListenEnabled) setTimeout(()=> { if(!isSpeaking) startListening(); }, 600);
+    };
+    utter.onerror = (ev)=> {
+      console.warn('[KaAi TTS error]', ev.error, ev);
+      isSpeaking=false; setOrbSpeaking(false);
+      $('#centerStatus').textContent = 'Ses hatası, yeniden dinliyorum...';
+      if(autoListenEnabled) setTimeout(()=> startListening(), 800);
+    };
+    window.speechSynthesis.speak(utter);
+    // Chrome bug: speak may stall if not resumed after 200ms
+    setTimeout(()=>{ try{ window.speechSynthesis.resume(); }catch{} }, 200);
+  };
 
   const voices = window.speechSynthesis.getVoices();
-  let chosen = null;
-  const trVoices = voices.filter(v=> v.lang.toLowerCase().includes('tr'));
-  if(trVoices.length){
-    // Öncelik: en kalın erkek sesleri
-    chosen = trVoices.find(v=> /tolga/i.test(v.name)) ||
-             trVoices.find(v=> /murat/i.test(v.name)) ||
-             trVoices.find(v=> /emre/i.test(v.name)) ||
-             trVoices.find(v=> /google/i.test(v.name) && /türk/i.test(v.name)) ||
-             trVoices.find(v=> /microsoft/i.test(v.name)) ||
-             trVoices[0];
-  }
-  if(!chosen && voices.length){
-    // Fallback: en düşük pitch tahmini - erkek isimli sesler
-    chosen = voices.find(v=> /david|mark|alex|daniel/i.test(v.name)) || voices[0];
-  }
-  if(chosen) utter.voice = chosen;
-
-  utter.onstart = ()=> {
-    isSpeaking=true; setOrbSpeaking(true);
-    $('#speakingBadge').textContent='KONUŞUYOR';
-    $('#speakingBadge').classList.add('speaking');
-    $('#centerStatus').textContent='KaAi konuşuyor...';
-    // Otomatik dinlemeyi geçici durdur
-    if(isListening) stopListening();
-  };
-  utter.onend = ()=> {
-    isSpeaking=false; setOrbSpeaking(false);
-    $('#speakingBadge').textContent='HAZIR';
-    $('#speakingBadge').classList.remove('speaking');
-    $('#centerStatus').textContent = autoListenEnabled ? 'Dinliyorum, efendim... (otomatik)' : 'Hazır, efendim...';
-    // Konuşma bitince otomatik dinlemeye dön
-    if(autoListenEnabled){
-      setTimeout(()=> { if(!isSpeaking) startListening(); }, 600);
-    }
-  };
-  utter.onerror = ()=> { isSpeaking=false; setOrbSpeaking(false); if(autoListenEnabled) setTimeout(()=> startListening(), 800); };
-
-  // Voices async ise bekle
   if(voices.length===0){
+    let retried=false;
     window.speechSynthesis.onvoiceschanged = ()=> {
-      const vs = window.speechSynthesis.getVoices();
-      if(vs.length) speak(text);
+      if(retried) return; retried=true;
+      doSpeak();
     };
-    setTimeout(()=> window.speechSynthesis.speak(utter), 250);
+    // fallback timeout — çoğu tarayıcıda voices 100-500ms içinde gelir
+    setTimeout(()=>{ if(!retried){ retried=true; doSpeak(); } }, 500);
   } else {
-    window.speechSynthesis.speak(utter);
+    doSpeak();
   }
 }
 

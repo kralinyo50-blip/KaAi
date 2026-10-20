@@ -11,28 +11,33 @@ try {
   Store = null;
 }
 
-// === MODEL MIGRATION — eski Gemini 2.0/1.5/preview → Gemini 3 ===
+// === MODEL MIGRATION — Gemini 3.1 Pro stable (Oct 2026 retirement of 2.5) ===
 const MODEL_MIGRATION = {
   'gemini-2.0-flash': 'gemini-3.8-flash',
-  'gemini-2.0-flash-lite': 'gemini-2.5-flash-lite',
-  'gemini-2.5-flash-preview-04-17': 'gemini-2.5-flash',
-  'gemini-2.5-flash-preview-05-20': 'gemini-2.5-flash',
-  'gemini-2.5-pro-preview-03-25': 'gemini-2.5-pro',
-  'gemini-2.5-pro-preview-05-06': 'gemini-2.5-pro',
-  'gemini-2.5-pro-preview-06-05': 'gemini-2.5-pro',
-  'gemini-1.5-pro': 'gemini-2.5-pro',
-  'gemini-1.5-flash': 'gemini-2.5-flash',
-  'gemini-1.5-flash-8b': 'gemini-2.5-flash-lite',
-  'gemini-1.5-flash-lite': 'gemini-2.5-flash-lite'
+  'gemini-2.0-flash-lite': 'gemini-3.5-flash-lite',
+  'gemini-2.5-flash-preview-04-17': 'gemini-3.8-flash',
+  'gemini-2.5-flash-preview-05-20': 'gemini-3.8-flash',
+  'gemini-2.5-pro-preview-03-25': 'gemini-3.1-pro-preview',
+  'gemini-2.5-pro-preview-05-06': 'gemini-3.1-pro-preview',
+  'gemini-2.5-pro-preview-06-05': 'gemini-3.1-pro-preview',
+  'gemini-2.5-pro': 'gemini-3.1-pro-preview',
+  'gemini-2.5-flash': 'gemini-3.8-flash',
+  'gemini-2.5-flash-lite': 'gemini-3.5-flash-lite',
+  'gemini-1.5-pro': 'gemini-3.1-pro-preview',
+  'gemini-1.5-flash': 'gemini-3.8-flash',
+  'gemini-1.5-flash-8b': 'gemini-3.5-flash-lite',
+  'gemini-1.5-flash-lite': 'gemini-3.5-flash-lite',
+  'gemini-3-pro-preview': 'gemini-3.1-pro-preview',
+  'gemini-3-flash-preview': 'gemini-3.8-flash'
 };
-const VALID_MODELS = ['gemini-3.8-flash','gemini-3.5-flash','gemini-4-argon','gemini-2.5-pro','gemini-2.5-flash','gemini-2.5-flash-lite'];
-const FALLBACK_CHAIN = ['gemini-3.8-flash','gemini-2.5-flash','gemini-3.5-flash','gemini-2.5-flash-lite'];
+const VALID_MODELS = ['gemini-3.1-pro-preview','gemini-3.8-flash','gemini-3.5-flash','gemini-3.5-flash-lite','gemini-4-argon','gemini-3-flash-preview'];
+const FALLBACK_CHAIN = ['gemini-3.1-pro-preview','gemini-3.8-flash','gemini-3.5-flash','gemini-3.5-flash-lite'];
 
 function migrateModel(m){
-  if(!m) return 'gemini-3.8-flash';
+  if(!m) return 'gemini-3.1-pro-preview';
   if(MODEL_MIGRATION[m]) return MODEL_MIGRATION[m];
   if(VALID_MODELS.includes(m)) return m;
-  return 'gemini-3.8-flash';
+  return 'gemini-3.1-pro-preview';
 }
 
 // Store için fallback - KaAi v2.0 Gemini 3
@@ -42,7 +47,7 @@ if (Store) {
     name: 'kaai-settings',
     defaults: {
       geminiApiKey: '',
-      geminiModel: 'gemini-3.8-flash',
+      geminiModel: 'gemini-3.1-pro-preview',
       voiceRate: 0.92,
       voicePitch: 0.82,
       autoStartMic: true,
@@ -349,7 +354,7 @@ ipcMain.handle('gemini-chat', async (e, messages, apiKey) => {
     const key = apiKey || store.get('geminiApiKey');
     if (!key) return { success: false, error: 'API anahtarı ayarlanmamış. Lütfen AYARLAR bölümünden Google Gemini API anahtarınızı girin.' };
 
-    let model = migrateModel(store.get('geminiModel') || 'gemini-3.8-flash');
+    let model = migrateModel(store.get('geminiModel') || 'gemini-3.1-pro-preview');
     // her çağrıda store'u düzelt
     if(store.get('geminiModel') !== model) store.set('geminiModel', model);
 
@@ -402,8 +407,9 @@ KURALLAR:
         const data = await res.json();
         if (!res.ok) {
           const msg = data.error?.message || `API hatası: ${res.status}`;
-          // Model bulunamadı / desteklenmiyor → diğerini dene
-          if(msg.includes('is not found') || msg.includes('not supported') || msg.includes('not found') || msg.includes('Unknown model')){
+          const low = msg.toLowerCase();
+          // Model bulunamadı / desteklenmiyor / yetkisiz → diğerini dene (case-insensitive)
+          if(low.includes('is not found') || low.includes('not supported') || low.includes('not found') || low.includes('unknown model') || low.includes('no longer available') || low.includes('retired') || low.includes('has been removed') || low.includes('deprecated')){
             lastError = msg;
             continue;
           }
