@@ -1,10 +1,10 @@
-# KaAi v1.2 — Kaan Özkurt imzalı Jarvis Asistan (Gemini 3 Stable)
+# KaAi v2.0 — Kaan Özkurt imzalı Jarvis Asistan (Gemini 3 Stable)
 
 > **Kurucu: Kaan Özkurt** — Otomatik dinlemeli, derin erkek sesli, her cevabı “Efendim,” ile başlayan masaüstü AI. **Gemini 3** ile en stabil.
 
 ![KaAi](assets/icon.png)
 
-**Yenilik (v1.2):** Tüm eski `gemini-2.0/1.5` ve `preview-03-25` modelleri silindi → **Gemini 3 nesli** (3.8 Flash, 3.5 Flash, 4 Argon). `is not found` hatası tamamen düzeltildi, otomatik fallback zinciri eklendi. Mikrofon izni artık gerçek `getUserMedia` ile istenir, HUD’da canlı ses dalgası (AudioContext Analyser) ile konuşma %100 algılanır. Ekran görüntüsü, tam PC erişimi, “bıraktım sen yap” otomasyonu eklendi.
+**Yenilik (v2.0):** Tüm eski `gemini-2.0/1.5` ve `preview-03-25` modelleri silindi → **Gemini 3 nesli** (3.8 Flash, 3.5 Flash, 4 Argon). `is not found` hatası tamamen düzeltildi, otomatik fallback zinciri eklendi. Mikrofon izni artık gerçek `getUserMedia` ile istenir, HUD’da canlı ses dalgası (AudioContext Analyser) ile konuşma %100 algılanır. Ekran görüntüsü, tam PC erişimi, “bıraktım sen yap” otomasyonu eklendi.
 
 ---
 
@@ -16,7 +16,7 @@
 - **Derin erkek sesi** — Rate 0.92 / Pitch 0.82 + Tolga/Murat öncelikli + test butonu. Orb konuşurken halka pulse.
 - **Tam PC Erişimi** — Dosya gezgini (oluştur/oku/yaz/sil/aç), komut çalıştır, uygulama aç, **ekran görüntüsü al** (`desktopCapturer`), “masaüstüne not oluştur” sesli komut, “ekranımı gör” ile canlı önizleme + AI yorum.
 - **“Bıraktım” otomasyonu** — *“Bıraktım, sen hallet”* deyince KaAi devralır: dosya oluşturur, ekranı kontrol eder, işi bitirir.
-- **HUD v1.2** — Scanline, mic permission banner, audio bars (gerçek mic), sol menü senkron pulse, basit SVG harita, scanline.
+- **HUD v2.0** — Scanline, mic permission banner, audio bars (gerçek mic), sol menü senkron pulse, basit SVG harita, scanline.
 
 ---
 
@@ -28,7 +28,7 @@ cd KaAi
 npm install
 npm start              # dene — ilk açılışta mikrofon izni ver
 # AYARLAR → API Anahtarı Al → yapıştır → KAYDET
-npm run build:win       # → dist/KaAi-Setup-1.2.0-x64.exe
+npm run build:win       # → dist/KaAi-Setup-2.0.0-x64.exe
 ```
 Python: `pip install -r requirements.txt` → `python app.py` → `build_python_exe.bat`
 
@@ -72,6 +72,6 @@ Eski modeller (2.0, 1.5, preview-03-25) otomatik `3.8 Flash`’a migrate edilir.
 
 ## 🎨 HUD
 
-Üst: KaAi logosu, HAZIR/DİNLİYOR/KONUŞUYOR, mini orb, OTO. Orta: 5 halka orb + scanline + audio bars + dalga. Sol/sağ: senkron pulse, basit harita. Alt: OTO, mic (halka), v1.2.
+Üst: KaAi logosu, HAZIR/DİNLİYOR/KONUŞUYOR, mini orb, OTO. Orta: 5 halka orb + scanline + audio bars + dalga. Sol/sağ: senkron pulse, basit harita. Alt: OTO, mic (halka), v2.0.
 
-MIT © 2025 Kaan Özkurt — v1.2
+MIT © 2025 Kaan Özkurt — v2.0

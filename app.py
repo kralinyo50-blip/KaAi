@@ -286,7 +286,7 @@ if __name__ == "__main__":
     print(f"Ayarlar: {SETTINGS_PATH}")
 
     window = webview.create_window(
-        "KaAi v1.2 Gemini 3 | Kurucu: Kaan Özkurt",
+        "KaAi v2.0 Gemini 3 | Kurucu: Kaan Özkurt",
         entry,
         width=1366,
         height=768,

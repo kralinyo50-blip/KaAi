@@ -1,6 +1,6 @@
 {
   "name": "kaai-jarvis",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "description": "KaAi - Kaan Özkurt imzalı Jarvis | Gemini 3 stabil, oto dinleme, ekran görüşlü",
   "main": "main.js",
   "author": "Kaan Özkurt",

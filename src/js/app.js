@@ -162,6 +162,17 @@ async function setupSystemInfo() {
       if ($('#ramBar')) $('#ramBar').style.width = (info.ram ?? 0) + '%';
       if ($('#diskVal')) $('#diskVal').textContent = `%${info.disk ?? '--'}`;
       if ($('#diskBar')) $('#diskBar').style.width = (info.disk ?? 0) + '%';
+      // v2 HUD telemetry
+      const tc=$('#telCpu'), tr=$('#telRam'), tm=$('#telMic');
+      if(tc) tc.textContent = (info.cpu??'--') + '%';
+      if(tr) tr.textContent = (info.ram??'--') + '%';
+      if(tm) tm.textContent = autoListenEnabled ? (isListening?'DINLIYOR':'OTO') : 'KAPALI';
+      const dc=$('#hudCpu'), dr=$('#hudRamCenter'), dmL=$('#hudMicLeft'), dmR=$('#hudMicRight');
+      if(dc) dc.textContent = (info.cpu??'--') + '%';
+      if(dr) dr.textContent = (info.ram??'--') + '%';
+      const micState = autoListenEnabled ? (isListening?'DINLIYOR':'HAZIR') : 'KAPALI';
+      if(dmL) dmL.textContent = micState;
+      if(dmR) dmR.textContent = micState;
 
       // Ses durumu
       if ($('#voiceStatus')) {
@@ -972,6 +983,8 @@ function stopChrono(){
   $('#btnChronometer').innerHTML='<span class="icon">⏱</span> KRONOMETRE';
   $('#timerSection')?.classList.remove('active');
 }
+// expose for v2 bridge
+window._kaai = { handleUserMessage, speak, startListening, stopListening, captureAndShow, openFileExplorer };
 
 // File Explorer
 let currentPath = null;

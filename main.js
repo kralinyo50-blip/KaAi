@@ -35,7 +35,7 @@ function migrateModel(m){
   return 'gemini-3.8-flash';
 }
 
-// Store için fallback - KaAi v1.2 Gemini 3
+// Store için fallback - KaAi v2.0 Gemini 3
 let store;
 if (Store) {
   store = new Store({
@@ -343,7 +343,7 @@ ipcMain.handle('get-migrated-model', () => {
   return migrated;
 });
 
-// Gemini API çağrısı - KaAi v1.2 Gemini 3 Stabil + Fallback
+// Gemini API çağrısı - KaAi v2.0 Gemini 3 Stabil + Fallback
 ipcMain.handle('gemini-chat', async (e, messages, apiKey) => {
   try {
     const key = apiKey || store.get('geminiApiKey');
