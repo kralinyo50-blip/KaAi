@@ -28,9 +28,14 @@ contextBridge.exposeInMainWorld('kaaiAPI', {
   execCommand: (cmd, cwd) => ipcRenderer.invoke('exec-command', cmd, cwd),
   openApp: (name) => ipcRenderer.invoke('open-app', name),
 
-  // AI
+  // AI - Gemini 3
   geminiChat: (msgs, key) => ipcRenderer.invoke('gemini-chat', msgs, key),
   fetchUrl: (url) => ipcRenderer.invoke('fetch-url', url),
+  getMigratedModel: () => ipcRenderer.invoke('get-migrated-model'),
+
+  // Ekran / Tam PC Erişim
+  captureScreen: () => ipcRenderer.invoke('capture-screen'),
+  getScreenSources: () => ipcRenderer.invoke('get-screen-sources'),
 
   // Pencere
   minimize: () => ipcRenderer.invoke('window-minimize'),

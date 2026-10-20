@@ -100,6 +100,24 @@ body {
 .top-btn.primary:hover { background: var(--cyan); color:#000; box-shadow:0 0 12px rgba(122,240,255,0.4); }
 .clock-top { color:#fff; font-weight:700; min-width:40px; text-align:right; font-variant-numeric: tabular-nums; }
 
+/* Mic Permission HUD */
+.mic-permission {
+  display:none;
+  align-items:center;
+  gap:12px;
+  margin:8px 16px 0;
+  padding:10px 14px;
+  background: linear-gradient(135deg, rgba(0,230,118,0.12), rgba(122,240,255,0.06));
+  border:1px solid rgba(0,230,118,0.4);
+  z-index:5;
+}
+.mic-permission.show { display:flex; animation: slideDown 0.3s ease; }
+@keyframes slideDown { from{ opacity:0; transform:translateY(-8px)} to{ opacity:1; transform:translateY(0)} }
+.mic-perm-icon { font-size:22px; }
+.mic-perm-text { flex:1; display:flex; flex-direction:column; gap:2px; }
+.mic-perm-text strong { font-size:12px; color:#fff; }
+.mic-perm-text span { font-size:11px; color: var(--text-dim); }
+
 /* Main Layout */
 .main-layout {
   flex:1;
@@ -231,6 +249,14 @@ body {
   background-size: 60px 60px;
   mask: radial-gradient(ellipse at center, black 60%, transparent 85%);
 }
+.hud-scanline {
+  position:absolute; inset:0;
+  background: linear-gradient(transparent 50%, rgba(122,240,255,0.015) 50%);
+  background-size: 100% 4px;
+  pointer-events:none;
+  animation: scanMove 8s linear infinite;
+}
+@keyframes scanMove { 0%{ transform:translateY(0)} 100%{ transform:translateY(40px)} }
 .orb-audio-bars {
   position:absolute; top: 18%; display:flex; gap:4px; align-items:center; opacity:0; transition: opacity 0.3s;
 }
@@ -548,6 +574,11 @@ body {
 .file-item .meta { font-size:10px; color: var(--text-dim); }
 .file-actions { display:flex; gap:8px; padding:12px 16px; border-top:1px solid var(--border); }
 .file-actions input { flex:1; background: rgba(0,0,0,0.5); border:1px solid var(--border); color:#fff; padding:8px 10px; font-size:12px; outline:none; }
+
+/* Screen Preview */
+.screen-preview { padding:12px; background:#000; display:flex; flex-direction:column; gap:8px; }
+.screen-preview img { border:1px solid var(--border); background:#111; min-height:200px; }
+.screen-hint { font-size:11px; color: var(--text-dim); text-align:center; }
 
 /* Scrollbars */
 ::-webkit-scrollbar { width:6px; height:6px; }

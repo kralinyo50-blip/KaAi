@@ -111,12 +111,24 @@
         <button class="t-btn full" id="btnChronometer"><span class="icon">⏱</span> KRONOMETRE</button>
       </div>
 
-      <div class="left-foot">© Kaan Özkurt • KaAi v1.1</div>
+      <div class="left-foot">© Kaan Özkurt • KaAi v1.2</div>
     </aside>
+
+    <!-- MIC PERMISSION BANNER - HUD -->
+    <div class="mic-permission" id="micPermissionBanner">
+      <div class="mic-perm-icon">🎤</div>
+      <div class="mic-perm-text">
+        <strong>Mikrofon izni gerekli, efendim</strong>
+        <span>Konuşmanızı algılamam için izin verin — tek tık</span>
+      </div>
+      <button class="btn primary small" id="enableMicBtn">İZİN VER & DİNLE</button>
+      <button class="btn small" id="dismissMicBtn">Sonra</button>
+    </div>
 
     <!-- CENTER - ORB -->
     <main class="center-stage">
       <div class="grid-bg"></div>
+      <div class="hud-scanline"></div>
       <div class="orb-audio-bars" id="audioBars">
         <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
       </div>
@@ -263,7 +275,7 @@
     <div class="bottom-right">
       <span class="mode-toggle" id="modeToggle">OTO • YAZ</span>
       <button class="info-btn" id="infoBtn" title="KaAi hakkında">ⓘ</button>
-      <span class="version">v1.1 • KaAi</span>
+      <span class="version">v1.2 • KaAi</span>
     </div>
   </footer>
 
@@ -290,17 +302,16 @@
           <small>Yapıştırın ve kaydedin. Anahtar yalnızca cihazınızda kalır.</small>
         </div>
         <div class="form-group">
-          <label>AI Modeli — Daha zeki modeller eklendi</label>
+          <label>AI Modeli — Gemini 3 Nesli (Stabil)</label>
           <select id="modelSelect">
-            <option value="gemini-2.0-flash">⚡ Gemini 2.0 Flash (önerilen — hızlı)</option>
-            <option value="gemini-2.5-flash-preview-04-17">🚀 Gemini 2.5 Flash Preview (en yeni)</option>
-            <option value="gemini-2.5-pro-preview-03-25">🧠 Gemini 2.5 Pro Preview (en zeki)</option>
-            <option value="gemini-2.0-flash-lite">🍃 Gemini 2.0 Flash Lite (ekonomik)</option>
-            <option value="gemini-1.5-pro">🏔 Gemini 1.5 Pro (uzun bağlam)</option>
-            <option value="gemini-1.5-flash">⚡ Gemini 1.5 Flash</option>
-            <option value="gemini-1.5-flash-8b">💨 Gemini 1.5 Flash 8B (en hızlı)</option>
+            <option value="gemini-3.8-flash">⚡ Gemini 3.8 Flash (önerilen — en yeni & stabil)</option>
+            <option value="gemini-3.5-flash">🚀 Gemini 3.5 Flash (dengeli, hızlı)</option>
+            <option value="gemini-4-argon">💎 Gemini 4 Argon (en güçlü akıl)</option>
+            <option value="gemini-2.5-pro">🧠 Gemini 2.5 Pro (derin muhakeme)</option>
+            <option value="gemini-2.5-flash">✨ Gemini 2.5 Flash (kanıtlanmış)</option>
+            <option value="gemini-2.5-flash-lite">🍃 Gemini 2.5 Flash-Lite (ekonomik)</option>
           </select>
-          <small>2.5 Pro en zeki, 2.0 Flash en dengeli.</small>
+          <small>Önerilen: 3.8 Flash — 2026'nın en stabil sürümü. Argon en zekisi.</small>
         </div>
         <div class="form-group">
           <label>Ses — Derin Erkek Sesi</label>
@@ -361,48 +372,72 @@
     </div>
   </div>
 
-  <!-- MODELS MODAL - Yeni modeller -->
+  <!-- MODELS MODAL - Gemini 3 -->
   <div class="modal-overlay" id="modelsModal">
     <div class="modal">
       <div class="modal-header">
-        <h2>◈ KaAi AI MODELLERİ</h2>
+        <h2>◈ KaAi AI MODELLERİ — GEMINI 3</h2>
         <button class="modal-close" id="closeModels">✕</button>
       </div>
       <div class="modal-body models-grid">
-        <div class="model-card active" data-model="gemini-2.0-flash">
-          <div class="model-badge">ÖNERİLEN</div>
-          <h3>KaAi — Gemini 2.0 Flash</h3>
-          <p>Hızlı, Türkçe odaklı, günlük asistan. 1M token bağlam.</p>
-          <div class="model-meta"><span>⚡ Hızlı</span><span>🧠 Zeki</span></div>
-          <span class="badge">KURUCU: Kaan Özkurt</span>
+        <div class="model-card active" data-model="gemini-3.8-flash">
+          <div class="model-badge">ÖNERİLEN • STABİL</div>
+          <h3>KaAi — Gemini 3.8 Flash</h3>
+          <p>2026'nın en stabil modeli. Hız + akıl dengesi, düşük gecikme, Türkçe ustası.</p>
+          <div class="model-meta"><span>⚡ En Yeni</span><span>🧠 Dengeli</span></div>
+          <span class="badge">KURUCU: Kaan Özkurt • v1.2</span>
         </div>
-        <div class="model-card" data-model="gemini-2.5-pro-preview-03-25">
-          <div class="model-badge pro">EN ZEKİ</div>
-          <h3>Gemini 2.5 Pro Preview</h3>
-          <p>En gelişmiş muhakeme, kodlama, matematik. Uzun bağlamda usta.</p>
-          <div class="model-meta"><span>🧠 En Zeki</span><span>📚 Derin Analiz</span></div>
+        <div class="model-card" data-model="gemini-4-argon">
+          <div class="model-badge pro">EN GÜÇLÜ</div>
+          <h3>Gemini 4 Argon</h3>
+          <p>En ileri muhakeme, kod, matematik, uzun belge. Frontier zekâ.</p>
+          <div class="model-meta"><span>💎 En Güçlü</span><span>🧠 Derin Akıl</span></div>
           <button class="btn small primary model-select-btn">Seç</button>
         </div>
-        <div class="model-card" data-model="gemini-2.5-flash-preview-04-17">
-          <div class="model-badge new">YENİ</div>
-          <h3>Gemini 2.5 Flash</h3>
-          <p>2.5 Pro zekasına yakın, Flash hızında. En yeni nesil.</p>
-          <div class="model-meta"><span>🚀 Yeni</span><span>⚡ Dengeli</span></div>
+        <div class="model-card" data-model="gemini-3.5-flash">
+          <div class="model-badge new">POPÜLER</div>
+          <h3>Gemini 3.5 Flash</h3>
+          <p>Yüksek hacim + mantık. Günlük işler için ideal hız/performans.</p>
+          <div class="model-meta"><span>🚀 Hızlı</span><span>📚 Akıllı</span></div>
           <button class="btn small model-select-btn">Seç</button>
         </div>
-        <div class="model-card" data-model="gemini-1.5-pro">
-          <h3>Gemini 1.5 Pro</h3>
-          <p>2M token bağlam, doküman analizi, video anlama.</p>
-          <div class="model-meta"><span>📖 Uzun Bağlam</span></div>
+        <div class="model-card" data-model="gemini-2.5-pro">
+          <h3>Gemini 2.5 Pro</h3>
+          <p>Derin muhakeme ve kodlama mirası. Kanıtlanmış zeka.</p>
+          <div class="model-meta"><span>🧠 Klasik Zeki</span></div>
           <button class="btn small model-select-btn">Seç</button>
         </div>
-        <div class="model-card" data-model="gemini-1.5-flash-8b">
-          <h3>Gemini 1.5 Flash 8B</h3>
-          <p>En hızlı, düşük gecikme, toplu işlemler için ideal.</p>
-          <div class="model-meta"><span>💨 En Hızlı</span></div>
+        <div class="model-card" data-model="gemini-2.5-flash-lite">
+          <h3>Gemini 2.5 Flash-Lite</h3>
+          <p>En ekonomik, toplu işlem, saniyede yüzlerce istek.</p>
+          <div class="model-meta"><span>🍃 Ekonomik</span><span>💨 Hızlı</span></div>
           <button class="btn small model-select-btn">Seç</button>
         </div>
-        <p class="hint">Seçiminiz AYARLAR'a kaydedilir ve tüm konuşmalarda kullanılır.</p>
+        <p class="hint">Tüm modeller v1beta uyumlu, otomatik fallback'li. Seçimin anında aktif olur.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN MODAL - Tam PC Görüş -->
+  <div class="modal-overlay" id="screenModal">
+    <div class="modal large" style="max-width:900px">
+      <div class="modal-header">
+        <h2>🖥️ EKRAN GÖRÜNTÜSÜ — KaAi Görüyor</h2>
+        <div style="display:flex; gap:8px">
+          <button class="btn small" id="screenRefresh">↻ Yenile</button>
+          <button class="btn small primary" id="screenLiveToggle">● CANLI</button>
+          <button class="modal-close" id="closeScreen">✕</button>
+        </div>
+      </div>
+      <div class="screen-preview">
+        <img id="screenPreviewImg" alt="Ekran görüntüsü" style="width:100%; max-height:65vh; object-fit:contain; background:#000; border:1px solid var(--border)">
+        <div class="screen-hint">“Ekranımı gör” deyin — KaAi ekranınızı analiz eder, dosya oluşturur, işlemi yapar, efendim.</div>
+      </div>
+      <div class="modal-body" style="padding-top:10px">
+        <div style="display:flex; gap:8px">
+          <input type="text" id="screenPrompt" placeholder="Ekranda ne yapayım? Örn: 'sağdaki hatayı düzelt ve masaüstüne rapor oluştur' " style="flex:1; background:rgba(0,0,0,0.5); border:1px solid var(--border); color:#fff; padding:10px">
+          <button class="btn primary" id="screenAskBtn">KaAi'ye Sor</button>
+        </div>
       </div>
     </div>
   </div>

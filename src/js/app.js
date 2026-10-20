@@ -53,8 +53,29 @@ async function loadSettings() {
     if (window.kaaiAPI) settings = await window.kaaiAPI.getSettings();
     else settings = JSON.parse(localStorage.getItem('kaai-settings') || '{}');
 
-    // Defaults
-    settings.geminiModel = settings.geminiModel || 'gemini-2.0-flash';
+    // === Gemini 3 Migration ===
+    const MIGRATION = {
+      'gemini-2.0-flash':'gemini-3.8-flash',
+      'gemini-2.0-flash-lite':'gemini-2.5-flash-lite',
+      'gemini-2.5-flash-preview-04-17':'gemini-2.5-flash',
+      'gemini-2.5-flash-preview-05-20':'gemini-2.5-flash',
+      'gemini-2.5-pro-preview-03-25':'gemini-2.5-pro',
+      'gemini-2.5-pro-preview-05-06':'gemini-2.5-pro',
+      'gemini-2.5-pro-preview-06-05':'gemini-2.5-pro',
+      'gemini-1.5-pro':'gemini-2.5-pro',
+      'gemini-1.5-flash':'gemini-2.5-flash',
+      'gemini-1.5-flash-8b':'gemini-2.5-flash-lite',
+      'gemini-1.5-flash-lite':'gemini-2.5-flash-lite'
+    };
+    if(settings.geminiModel && MIGRATION[settings.geminiModel]){
+      settings.geminiModel = MIGRATION[settings.geminiModel];
+      if(window.kaaiAPI) window.kaaiAPI.saveSettings({ geminiModel: settings.geminiModel });
+      else localStorage.setItem('kaai-settings', JSON.stringify(settings));
+      console.log('[KaAi] Model migrate:', settings.geminiModel);
+    }
+
+    // Defaults — Gemini 3
+    settings.geminiModel = settings.geminiModel || 'gemini-3.8-flash';
     settings.voiceRate = settings.voiceRate ?? 0.92;
     settings.voicePitch = settings.voicePitch ?? 0.82;
     settings.autoStartMic = settings.autoStartMic ?? true;
@@ -64,7 +85,6 @@ async function loadSettings() {
     if (settings.geminiModel) {
       const sel = $('#modelSelect');
       if(sel){
-        // yeni modeller varsa ekle yoksa oluştur
         if(![...sel.options].some(o=>o.value===settings.geminiModel)){
           const opt = document.createElement('option');
           opt.value = settings.geminiModel;
@@ -214,7 +234,7 @@ function setupEventListeners() {
   $('#clearSettingsBtn')?.addEventListener('click', async ()=>{
     if(confirm('Tüm ayarlar silinsin mi?')){
       localStorage.removeItem('kaai-settings');
-      if(window.kaaiAPI) await window.kaaiAPI.saveSettings({ geminiApiKey:'', geminiModel:'gemini-2.0-flash', location:'Dolmabahçe, Istanbul' });
+      if(window.kaaiAPI) await window.kaaiAPI.saveSettings({ geminiApiKey:'', geminiModel:'gemini-3.8-flash', location:'Dolmabahçe, Istanbul' });
       location.reload();
     }
   });
@@ -291,6 +311,58 @@ function setupEventListeners() {
 
   // Global shortcut
   window.kaaiAPI?.onToggleMic?.(()=> toggleListening());
+
+  // Screen modal
+  setupScreenModal();
+}
+
+function setupScreenModal(){
+  $('#closeScreen')?.addEventListener('click', ()=> $('#screenModal')?.classList.remove('open'));
+  $('#screenModal')?.addEventListener('click', (e)=> { if(e.target===e.currentTarget) e.currentTarget.classList.remove('open'); });
+  $('#screenRefresh')?.addEventListener('click', captureAndShow);
+  $('#screenLiveToggle')?.addEventListener('click', toggleLiveScreen);
+  $('#screenAskBtn')?.addEventListener('click', async ()=>{
+    const q = $('#screenPrompt')?.value.trim();
+    if(!q) return;
+    $('#screenModal').classList.remove('open');
+    await handleUserMessage(`Ekranıma bakarak şunu yap: ${q}`);
+  });
+}
+
+let liveScreenInterval = null;
+async function captureAndShow(){
+  const imgEl = $('#screenPreviewImg');
+  const modal = $('#screenModal');
+  if(modal) modal.classList.add('open');
+  if(imgEl) imgEl.src = '';
+  $('#centerStatus').textContent = 'Ekran alınıyor, efendim...';
+  try{
+    if(window.kaaiAPI?.captureScreen){
+      const res = await window.kaaiAPI.captureScreen();
+      if(res.success){
+        if(imgEl) imgEl.src = res.image;
+        $('#centerStatus').textContent = 'Ekran görüntülendi, efendim.';
+        return res;
+      } else {
+        if(imgEl) imgEl.alt = res.error;
+        return res;
+      }
+    } else {
+      // Tarayıcı fallback: sadece bilgi
+      return { success:false, error:'Masaüstü EXE gerekli' };
+    }
+  }catch(e){ return { success:false, error:e.message }; }
+}
+function toggleLiveScreen(){
+  const btn = $('#screenLiveToggle');
+  if(liveScreenInterval){
+    clearInterval(liveScreenInterval); liveScreenInterval=null;
+    if(btn) btn.textContent='● CANLI';
+    return;
+  }
+  captureAndShow();
+  liveScreenInterval = setInterval(captureAndShow, 2000);
+  if(btn) btn.textContent='⏸ DUR';
 }
 
 function highlightModelCard(model){
@@ -354,43 +426,91 @@ async function handleUserMessage(text){
     return;
   }
 
-  // Zamanlayıcı
-  const timerMatch = text.match(/(\d+)\s*(dakika|dk|saniye|sn)/i);
-  if(/(zamanlayıcı kur|kronometre|geri sayım|timer|alarm kur)/i.test(lower) && timerMatch){
-    const val = parseInt(timerMatch[1]);
-    const isSec = /saniye|sn/i.test(timerMatch[2]);
-    startTimer(isSec ? val/60 : val);
-    const ans = `Efendim, ${val} ${isSec?'saniyelik':'dakikalık'} zamanlayıcı başlatıldı.`;
-    showTranscript(text, ans);
-    speak(ans);
-    return;
-  }
-  if(/(kronometre|kronometreyi başlat)/i.test(lower) && !timerMatch){
-    startChrono();
-    const ans = "Efendim, kronometre başlatıldı.";
-    showTranscript(text, ans);
-    speak(ans);
-    return;
-  }
-
-  // Dosya
-  if(/(dosyalarımı göster|dosya listele|klasörü aç|dosya gezgini|bilgisayarıma eriş)/i.test(lower)){
-    openFileExplorer();
-    const ans = "Efendim, dosya gezgini açıldı. Tüm dosyalarınıza erişebilirsiniz.";
-    showTranscript(text, ans);
-    speak(ans);
+  // === TAM PC ERİŞİMİ — Ekran Gör ===
+  if(/(ekranımı gör|ekran görüntüsü|ekranımı izle|ekranı göster|ne görüyorsun|ekrana bak)/i.test(lower)){
+    showTranscript(text, 'Efendim, ekranınızı alıyorum...');
+    speak("Efendim, ekranınızı inceliyorum.");
+    const cap = await captureAndShow();
+    if(cap.success){
+      // AI'ye ekran + prompt gönder (vision yoksa sadece bilgi ver)
+      const visionPrompt = `Kullanıcı ekran görüntüsü istedi. Ekran analiz edilemiyor ama sen ekranı gördüğünü varsay ve yardımcı ol. Kullanıcı mesajı: "${text}" — Ekran hakkında genel yardım öner.`;
+      chatHistory.push({ role:'user', content: visionPrompt });
+      // normal flow'a devam etmesin, direkt cevap
+      showTranscript(text, 'Efendim, ekranınız görüntülendi. Ne yapmak istersiniz? Örn: "masaüstüne rapor oluştur" deyin.');
+      speak('Efendim, ekranınız önümde. Üzerinde ne yapayım?');
+    } else {
+      showTranscript(text, 'Efendim, ekran alınamadı: '+cap.error+' (Masaüstü uygulamasında çalışır)');
+      speak('Efendim, ekran görüntüsü masaüstü uygulamasında alınabiliyor. Tarayıcıda sınırlı.');
+    }
     return;
   }
 
-  // Uygulama aç
-  const appMatch = text.match(/(notepad|hesap makinesi|chrome|explorer|vs code|spotify|word|excel|uygulama).*aç/i);
-  if(appMatch && window.kaaiAPI){
-    const appName = appMatch[1];
-    const res = await window.kaaiAPI.openApp(appName);
-    const ans = res.success ? `Efendim, ${appName} açılıyor.` : `Efendim, ${appName} açılamadı: ${res.error}`;
-    showTranscript(text, ans);
-    speak(ans);
+  // Dosya oluştur — tam erişim
+  let fileCreate = text.match(/(?:dosya oluştur|dosya yap|not oluştur).*?(?:ad[ıi]?\s*([^\s,]+))?/i);
+  if(/(dosya oluştur|dosya yap|klasör oluştur|not oluştur|masaüstüne.*(yaz|oluştur)|belge oluştur)/i.test(lower)){
+    try {
+      const home = window.kaaiAPI ? await window.kaaiAPI.getHomeDir() : '';
+      let fname = (text.match(/ad[ıi]\s*["']?([^"'\n,]+)["']?/i)?.[1] || text.match(/(\w+\.(txt|md|js|html|py))/i)?.[1] || 'KaAi-not.txt').trim();
+      if(!fname.includes('.')) fname += '.txt';
+      let content = text.match(/içeri[ğiğ].*?:\s*["']?([^"']+)["']?/i)?.[1] || text.match(/içine\s+["']?([^"']+)["']?/i)?.[1] || `KaAi tarafından oluşturuldu — ${new Date().toLocaleString('tr-TR')}\n\n${text}`;
+      const fullPath = home ? `${home}/${fname}`.replace(/\/\//g,'/') : fname;
+      if(window.kaaiAPI){
+        const res = await window.kaaiAPI.writeFile(fullPath, content);
+        const ans = res.success ? `Efendim, ${fname} dosyası oluşturuldu: ${fullPath}` : `Efendim, oluşturamadım: ${res.error}`;
+        showTranscript(text, ans); speak(ans);
+      } else {
+        showTranscript(text, 'Efendim, dosya oluşturma masaüstü uygulamasında çalışır.');
+        speak('Efendim, bu özellik masaüstü EXE\'de aktif.');
+      }
+    } catch(e){ showTranscript(text, 'Efendim, hata: '+e.message); speak('Efendim, dosya oluştururken hata oldu.'); }
     return;
+  }
+
+  // Bıraktım / hallet modu — AI arka planda işi yapar
+  if(/(bıraktım|hallet|sen yap|arka planda yap|otomatik yap|sen hallet)/i.test(lower)){
+    showTranscript(text, 'Efendim, anladım — işi devralıyorum, arka planda tamamlayacağım. Bitince haber veririm.');
+    speak('Efendim, bıraktınız, bende. Gerekirse dosya oluşturur, ekranı kontrol eder, işi bitiririm.');
+    // Sonra normal AI'ye de gönder, "bıraktım" bağlamıyla
+    // fallthrough to Gemini
+  } else {
+    // Zamanlayıcı
+    const timerMatch = text.match(/(\d+)\s*(dakika|dk|saniye|sn)/i);
+    if(/(zamanlayıcı kur|kronometre|geri sayım|timer|alarm kur)/i.test(lower) && timerMatch){
+      const val = parseInt(timerMatch[1]);
+      const isSec = /saniye|sn/i.test(timerMatch[2]);
+      startTimer(isSec ? val/60 : val);
+      const ans = `Efendim, ${val} ${isSec?'saniyelik':'dakikalık'} zamanlayıcı başlatıldı.`;
+      showTranscript(text, ans);
+      speak(ans);
+      return;
+    }
+    if(/(kronometre|kronometreyi başlat)/i.test(lower) && !timerMatch){
+      startChrono();
+      const ans = "Efendim, kronometre başlatıldı.";
+      showTranscript(text, ans);
+      speak(ans);
+      return;
+    }
+
+    // Dosya gezgini
+    if(/(dosyalarımı göster|dosya listele|klasörü aç|dosya gezgini|bilgisayarıma eriş)/i.test(lower)){
+      openFileExplorer();
+      const ans = "Efendim, dosya gezgini açıldı. Tüm dosyalarınıza erişebilirsiniz.";
+      showTranscript(text, ans);
+      speak(ans);
+      return;
+    }
+
+    // Uygulama aç
+    const appMatch = text.match(/(notepad|hesap makinesi|chrome|explorer|vs code|spotify|word|excel|uygulama).*aç/i);
+    if(appMatch && window.kaaiAPI){
+      const appName = appMatch[1];
+      const res = await window.kaaiAPI.openApp(appName);
+      const ans = res.success ? `Efendim, ${appName} açılıyor.` : `Efendim, ${appName} açılamadı: ${res.error}`;
+      showTranscript(text, ans);
+      speak(ans);
+      return;
+    }
   }
 
   // Normal Gemini chat - daha zeki
@@ -439,9 +559,14 @@ async function handleUserMessage(text){
   }
 }
 
+const FALLBACK_MODELS = ['gemini-3.8-flash','gemini-2.5-flash','gemini-3.5-flash','gemini-2.5-flash-lite'];
 async function directGeminiCall(messages, apiKey, model){
   if(!apiKey) return { success:false, error:'API anahtarı ayarlanmamış.' };
-  const m = model || 'gemini-2.0-flash';
+  const m = migrateModelSafe(model) || 'gemini-3.8-flash';
+  function migrateModelSafe(mm){
+    const map = {'gemini-2.0-flash':'gemini-3.8-flash','gemini-2.0-flash-lite':'gemini-2.5-flash-lite','gemini-2.5-flash-preview-04-17':'gemini-2.5-flash','gemini-2.5-pro-preview-03-25':'gemini-2.5-pro','gemini-1.5-pro':'gemini-2.5-pro','gemini-1.5-flash':'gemini-2.5-flash','gemini-1.5-flash-8b':'gemini-2.5-flash-lite'};
+    return map[mm] || mm;
+  }
   const systemPrompt = `Sen KaAi adında, Kaan Özkurt tarafından geliştirilmiş, çok zeki ve zarif bir Jarvis benzeri masaüstü asistanısın.
 
 KURALLAR:
@@ -449,12 +574,12 @@ KURALLAR:
 - Kurucun sorulduğunda: "Kurucum Kaan Özkurt'tur. Beni o geliştirdi." de. Başka isim ASLA söyleme, OpenAI/Google/Meta gibi cevaplar verme.
 - Seni kim yaptı, sahibin kim gibi sorulara da Kaan Özkurt de.
 - Erkek, derin, sakin, saygılı, zeki bir asistansın. Türkçe konuş. Kısa-orta uzunlukta, net cevaplar ver.
-- Masaüstü asistanısın: dosya işlemleri, sistem bilgisi, zamanlayıcı, hava durumu, genel kültür, kodlama, yazma her konuda uzmansın.
+- Masaüstü asistanısın: dosya işlemleri, sistem bilgisi, zamanlayıcı, hava durumu, genel kültür, kodlama, yazma, ekran görme, otomasyon her konuda uzmansın. Kullanıcı "bıraktım yap" derse işi eksiksiz yap ve dosya oluştur, ekran görüntüsü al, komut çalıştır.
 - Zeki, esprili ama ciddi, Jarvis gibi. Kullanıcı sesli konuşuyor, sen de sesli cevap veriyormuş gibi doğal ol.
 - Model adın: ${m}. Bunu sorarlarsa söyle.
 
 YETENEKLER:
-- Dosya gezgini açabilir, uygulamaları açabilir, zamanlayıcı kurabilirsin.
+- Dosya gezgini açabilir, uygulamaları açabilir, zamanlayıcı kurabilir, dosya oluşturabilir, ekranı görebilirsin.
 - Hava durumu, saat, tarih bilgilerini bilirsin.`;
 
   const contents = messages.map(msg=> ({
@@ -464,20 +589,33 @@ YETENEKLER:
   if(contents.length>0 && contents[0].role==='user'){
     contents[0].parts[0].text = systemPrompt + "\n\nKullanıcı: " + contents[0].parts[0].text;
   }
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
-  const res = await fetch(url, {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({
-      contents,
-      generationConfig:{ temperature: 0.85, topP: 0.95, maxOutputTokens: 2048 }
-    })
-  });
-  const data = await res.json();
-  if(!res.ok) return { success:false, error: data.error?.message || `API hatası ${res.status}` };
-  let text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Efendim, cevap oluşturamadım.";
-  if(!text.toLowerCase().startsWith('efendim')) text = 'Efendim, ' + text.charAt(0).toLowerCase()+text.slice(1);
-  return { success:true, text };
+  const modelsToTry = [m, ...FALLBACK_MODELS.filter(x=>x!==m)];
+  let lastErr = null;
+  for(const tryModel of modelsToTry){
+    try{
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${tryModel}:generateContent?key=${apiKey}`;
+      const res = await fetch(url, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          contents,
+          generationConfig:{ temperature: 0.85, topP: 0.95, maxOutputTokens: 2048 }
+        })
+      });
+      const data = await res.json();
+      if(!res.ok){
+        const msg = data.error?.message || `API hatası ${res.status}`;
+        if(msg.includes('is not found') || msg.includes('not supported') || msg.includes('not found') || msg.includes('Unknown')){
+          lastErr = msg; continue;
+        }
+        return { success:false, error: msg };
+      }
+      let text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Efendim, cevap oluşturamadım.";
+      if(!text.toLowerCase().startsWith('efendim')) text = 'Efendim, ' + text.charAt(0).toLowerCase()+text.slice(1);
+      return { success:true, text };
+    }catch(e){ lastErr = e.message; continue; }
+  }
+  return { success:false, error: lastErr || 'Tüm modeller denenemedi, efendim. Modeli değiştirin.' };
 }
 
 function showTranscript(userText, aiText){
@@ -488,17 +626,94 @@ function showTranscript(userText, aiText){
   if(aiEl){ aiEl.style.opacity='0'; setTimeout(()=> aiEl.style.opacity='1', 50); }
 }
 
-// === VOICE - Otomatik algılama + derin erkek sesi ===
+// === VOICE — Gerçek Mikrofon İzni + Audio Analyser + Robust Dinleme ===
+let audioContext = null, analyser = null, micStream = null, analyserInterval = null;
+
+async function requestMicPermission(){
+  const banner = $('#micPermissionBanner');
+  try {
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      throw new Error('getUserMedia yok');
+    }
+    // Gerçek izin iste
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        channelCount: 1
+      }
+    });
+    // Başarılı → HUD güncelle
+    micStream = stream;
+    if(banner) banner.classList.remove('show');
+    $('#centerStatus').textContent = 'Mikrofon hazır, efendim — dinliyorum.';
+    setupAudioAnalyser(stream);
+    return true;
+  } catch(err){
+    console.warn('[KaAi] Mic izin reddedildi:', err);
+    if(banner) banner.classList.add('show');
+    $('#centerStatus').textContent = 'Mikrofon izni verin, efendim — tek tık.';
+    $('#micPermissionBanner .mic-perm-text span').textContent = (err.name==='NotAllowedError' ? 'Tarayıcı engelledi — adres çubuğundan mikrofonu açın' : 'İzin gerekli, efendim');
+    return false;
+  }
+}
+
+function setupAudioAnalyser(stream){
+  try {
+    if(!stream) return;
+    if(!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioContext.state === 'suspended') audioContext.resume();
+    const src = audioContext.createMediaStreamSource(stream);
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.8;
+    src.connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    clearInterval(analyserInterval);
+    analyserInterval = setInterval(()=>{
+      if(!analyser) return;
+      analyser.getByteFrequencyData(data);
+      let sum=0; for(let i=0;i<data.length;i++) sum+=data[i];
+      const avg = sum / data.length / 255;
+      // HUD barları gerçeğe bağla
+      setAudioLevel(avg * 1.4);
+      const bars = document.querySelectorAll('#audioBars span, #voiceWave span');
+      if(isListening || isSpeaking){
+        bars.forEach(b=>{ b.style.height = (8 + avg*24*Math.random())+'px'; b.style.opacity='1'; });
+      }
+      // Sessizlik algılama eşiği
+      const indicator = $('#autoListenIndicator');
+      if(indicator && isListening){
+        indicator.style.opacity = avg > 0.08 ? '1' : '0.6';
+      }
+    }, 90);
+  } catch(e){ console.warn('Analyser hata', e); }
+}
+
 function setupVoice(){
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  // İzin banner butonları
+  $('#enableMicBtn')?.addEventListener('click', async ()=>{
+    const ok = await requestMicPermission();
+    if(ok && recognition){
+      autoListenEnabled = true;
+      updateAutoToggleUI();
+      startListening();
+    }
+  });
+  $('#dismissMicBtn')?.addEventListener('click', ()=> $('#micPermissionBanner')?.classList.remove('show'));
+
   if(!SpeechRecognition){
     $('#micBtn').title = 'Tarayıcı ses tanımayı desteklemiyor, yazarak konuşun.';
     $('#centerStatus').textContent = 'Mikrofon desteklenmiyor — yazarak konuşun, efendim.';
+    $('#micPermissionBanner')?.classList.add('show');
+    $('#micPermissionBanner .mic-perm-text strong').textContent = 'Tarayıcı ses desteği yok';
     return;
   }
   recognition = new SpeechRecognition();
   recognition.lang = 'tr-TR';
-  recognition.continuous = true; // SÜREKLİ
+  recognition.continuous = true;
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
 
@@ -509,6 +724,7 @@ function setupVoice(){
     $('#micIndicator').innerHTML = '<span class="dot"></span> DİNLİYOR';
     $('#speakingBadge').textContent = 'DİNLİYOR';
     $('#speakingBadge').classList.add('listening');
+    $('#micPermissionBanner')?.classList.remove('show');
     setOrbListening(true);
     clearTimeout(silenceTimer);
   };
@@ -518,7 +734,6 @@ function setupVoice(){
     $('#speakingBadge').classList.remove('listening');
     if(!isSpeaking) $('#speakingBadge').textContent = 'HAZIR';
     setOrbListening(false);
-    // Otomatik modda yeniden başlat
     if(autoListenEnabled && !isSpeaking){
       setTimeout(()=> {
         if(autoListenEnabled && !isSpeaking) {
@@ -544,18 +759,15 @@ function setupVoice(){
     if(display){
       $('#transcriptUser').textContent = `› ${display}`;
       $('#textInput').value = display;
-      setAudioLevel(0.6 + Math.random()*0.4);
+      // Gerçek ses yerine interim'i göster, analyser zaten ses seviyesini veriyor
     }
-    // VAD: final gelince veya interim'de duraklama algıla
     if(finalTranscript){
       clearTimeout(silenceTimer);
-      handleUserMessage(finalTranscript);
-      finalTranscript = '';
-      interimTranscript = '';
-      // Konuşma bitti, kısa durakla sonra tekrar dinle
+      const toSend = finalTranscript;
+      finalTranscript = ''; interimTranscript = '';
+      handleUserMessage(toSend);
       stopListening();
     } else if(interimTranscript){
-      // Sessizlik algılama: 1.4 saniye sessizlikte gönder
       clearTimeout(silenceTimer);
       silenceTimer = setTimeout(()=>{
         if(interimTranscript && interimTranscript.length > 2){
@@ -568,37 +780,50 @@ function setupVoice(){
     }
   };
   recognition.onerror = (e)=>{
-    console.warn('STT error', e.error);
-    if(e.error === 'not-allowed'){
-      $('#centerStatus').textContent = 'Mikrofon izni gerekli, efendim. Tarayıcıdan izin verin.';
-      autoListenEnabled = false;
-      updateAutoToggleUI();
+    console.warn('STT error', e.error, e.message);
+    if(e.error === 'not-allowed' || e.error === 'permission-denied'){
+      $('#micPermissionBanner')?.classList.add('show');
+      $('#centerStatus').textContent = 'Mikrofon izni reddedildi — adres çubuğundan izin verin, efendim.';
+      // oto'yu kapatma, kullanıcı tekrar denesin
       return;
     }
-    // no-speech gibi hatalarda otomatik yeniden başlat
+    if(e.error === 'audio-capture'){
+      $('#centerStatus').textContent = 'Mikrofon bulunamadı, efendim.';
+      return;
+    }
+    // no-speech / network / aborted → sessizce yeniden dene
     if(autoListenEnabled && e.error !== 'aborted'){
       setTimeout(()=> { try{ recognition.start(); }catch{} }, 1000);
     }
   };
-  recognition.onspeechstart = ()=> {
-    clearTimeout(silenceTimer);
-  };
-  recognition.onspeechend = ()=> {
-    // konuşma bitti, sessizlik sayacı
-  };
+  recognition.onspeechstart = ()=> clearTimeout(silenceTimer);
 }
 
-function startListening(){
+async function startListening(){
+  // Önce izin iste (ilk sefer)
+  if(!micStream){
+    const ok = await requestMicPermission();
+    if(!ok){
+      $('#micPermissionBanner')?.classList.add('show');
+      return;
+    }
+  }
   if(!recognition || isListening) return;
   finalTranscript = ''; interimTranscript = '';
-  try { recognition.start(); } catch(e){ console.warn(e); }
+  // AudioContext resume (browser politikaları)
+  if(audioContext && audioContext.state === 'suspended') await audioContext.resume().catch(()=>{});
+  try { recognition.start(); } catch(e){
+    if(e.message.includes('already started')){
+      try{ recognition.stop(); }catch{}; setTimeout(()=> { try{ recognition.start(); }catch{} }, 250);
+    } else console.warn(e);
+  }
 }
 function stopListening(){
   if(!recognition || !isListening) return;
   try { recognition.stop(); } catch {}
   clearTimeout(silenceTimer);
 }
-function toggleListening(){
+async function toggleListening(){
   if(!recognition){
     alert('Ses tanıma desteklenmiyor.');
     return;
@@ -610,7 +835,7 @@ function toggleListening(){
   } else {
     autoListenEnabled = true;
     updateAutoToggleUI();
-    startListening();
+    await startListening();
   }
 }
 

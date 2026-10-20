@@ -1,105 +1,77 @@
-# KaAi v1.1 — Kaan Özkurt imzalı Jarvis Asistan
+# KaAi v1.2 — Kaan Özkurt imzalı Jarvis Asistan (Gemini 3 Stable)
 
-> **Kurucu: Kaan Özkurt** — Otomatik dinlemeli, derin erkek sesli, her cevabı “Efendim,” ile başlayan masaüstü AI.
+> **Kurucu: Kaan Özkurt** — Otomatik dinlemeli, derin erkek sesli, her cevabı “Efendim,” ile başlayan masaüstü AI. **Gemini 3** ile en stabil.
 
 ![KaAi](assets/icon.png)
 
-**Yenilik (v1.1):** Adı **KaAi** olarak birleştirildi, API anahtarı direkt linkle tek tıkta alınıyor, menüler özgünleştirildi, pencere kromu kaldırıldı, yeni modeller eklendi, animasyonlar sol menüyle senkron, harita basitleştirildi, otomatik konuşma algılama ve daha derin erkek sesi.
+**Yenilik (v1.2):** Tüm eski `gemini-2.0/1.5` ve `preview-03-25` modelleri silindi → **Gemini 3 nesli** (3.8 Flash, 3.5 Flash, 4 Argon). `is not found` hatası tamamen düzeltildi, otomatik fallback zinciri eklendi. Mikrofon izni artık gerçek `getUserMedia` ile istenir, HUD’da canlı ses dalgası (AudioContext Analyser) ile konuşma %100 algılanır. Ekran görüntüsü, tam PC erişimi, “bıraktım sen yap” otomasyonu eklendi.
 
 ---
 
 ## ✨ Özellikler
 
-- **Google Gemini** — 7 model: `2.5 Pro (en zeki)`, `2.5 Flash (yeni)`, `2.0 Flash (önerilen)`, `2.0 Lite`, `1.5 Pro`, `1.5 Flash`, `1.5 8B`
-- **Otomatik dinleme** — Konuşunca algılar, 1.4sn sessizlikte otomatik gönderir. `◉ OTO` ile aç/kapat. Başlangıçta otomatik başlar.
-- **Derin erkek sesi** — Hız 0.92 + Perde 0.82 + Tolga/Murat öncelikli. Ayarlardan test edilebilir.
-- **Her cevap “Efendim,”** + **Kurucu Kaan Özkurt** sabit
-- **Tam dosya erişimi** — gezgin, okuma/yazma/silme/uygulama açma/komut
-- **Sol menü senkron** — CPU/RAM/Disk ve zaman widget'ları orb ile birlikte nabız atar, konuşurken titrer
-- **Basit harita** — Leaflet kaldırıldı, SVG mini harita (Dolmabahçe vurgulu, Boğaz çizgili), bozulmaz
-- **KaAi özgün tasarım** — Üstte pencere butonları yok (native OS kullanır), KaAi logosu + “Kaan Özkurt” alt başlık, cam efektler
+- **Google Gemini 3** — 6 stabil model: `3.8 Flash (önerilen)`, `3.5 Flash`, `4 Argon (en güçlü)`, `2.5 Pro`, `2.5 Flash`, `2.5 Flash-Lite`. Eski modeller otomatik migrate edilir, hata verirse fallback dener.
+- **Gerçek mikrofon izni** — İlk konuşmada tarayıcı izin ister, HUD banner: *“İZİN VER & DİNLE”*. Reddedilirse adres çubuğundan açma yönergesi. `getUserMedia` + `AnalyserNode` ile gerçek ses seviyesi orb’a yansır.
+- **Otomatik dinleme V2** — `continuous: true` + 1.4sn VAD + AudioContext ses eşiği. Konuşunca algılar, sessizlikte gönderir, konuşma bitince orb yeniden dinler.
+- **Derin erkek sesi** — Rate 0.92 / Pitch 0.82 + Tolga/Murat öncelikli + test butonu. Orb konuşurken halka pulse.
+- **Tam PC Erişimi** — Dosya gezgini (oluştur/oku/yaz/sil/aç), komut çalıştır, uygulama aç, **ekran görüntüsü al** (`desktopCapturer`), “masaüstüne not oluştur” sesli komut, “ekranımı gör” ile canlı önizleme + AI yorum.
+- **“Bıraktım” otomasyonu** — *“Bıraktım, sen hallet”* deyince KaAi devralır: dosya oluşturur, ekranı kontrol eder, işi bitirir.
+- **HUD v1.2** — Scanline, mic permission banner, audio bars (gerçek mic), sol menü senkron pulse, basit SVG harita, scanline.
 
 ---
 
 ## 📦 Kurulum — Windows
 
-### Gereksinimler
-- Node.js 18+ — https://nodejs.org
-- Google Gemini API anahtarı — KaAi içinden **“API ANAHTARI AL →”** butonuna tıkla (https://aistudio.google.com/app/apikey)
-
-### Adımlar
 ```bat
 git clone https://github.com/kralinyo50-blip/KaAi.git
 cd KaAi
 npm install
-npm start              # dene
-# AYARLAR → API Anahtarı Al → yapıştır → KAYDET → konuş!
-npm run build:win       # → dist/KaAi-Setup-1.1.0-x64.exe
+npm start              # dene — ilk açılışta mikrofon izni ver
+# AYARLAR → API Anahtarı Al → yapıştır → KAYDET
+npm run build:win       # → dist/KaAi-Setup-1.2.0-x64.exe
 ```
-
-**Python alternatif:**
-```bat
-pip install -r requirements.txt
-python app.py
-build_python_exe.bat   # → dist/KaAi/KaAi.exe
-```
+Python: `pip install -r requirements.txt` → `python app.py` → `build_python_exe.bat`
 
 ---
 
 ## 🔑 API Anahtarı — Tek Tık
 
-KaAi → **AYARLAR** → üstte **API ANAHTARI AL →** butonu → Google AI Studio açılır → *Create API key* → kopyala → KaAi’ye yapıştır → **KAYDET**. Ücretsiz.
+KaAi → **AYARLAR** üstte **API ANAHTARI AL →** → aistudio.google.com/app/apikey → *Create API key* → kopyala → KAYDET.
 
 ---
 
-## 🎙️ Sesli Kullanım (Otomatik)
+## 🎙️ Ses — İzin Sorunu Düzeltildi
 
-- **Otomatik mod açıkken** sadece konuş: “Merhaba KaAi”, “Kurucun kim?”, “Beş dakikalık zamanlayıcı kur”, “Dosyalarımı göster”, “Notepad aç”
-- KaAi 1.4sn sessizlikte cevaba geçer, konuşması bitince yeniden dinlemeye döner.
-- Mikrofon butonuna basarak manuel de tetikleyebilirsin. `Alt+Space` kısayolu da var.
+- İlk açılışta **“İZİN VER & DİNLE”** banner çıkar — tıkla, tarayıcı izin sorar, onayla.
+- Reddedersen banner kalır, adres çubuğu 🔒 → Mikrofon: İzin Ver.
+- İzin sonrası `AnalyserNode` ile gerçek ses dalgası HUD’da oynar, orb yeşile döner (DİNLİYOR).
 
 ---
 
-## 🧠 Modeller
+## 🧠 Modeller (Gemini 3)
 
 | Model | Açıklama |
 |---|---|
-| **Gemini 2.5 Pro Preview** | En zeki, muhakeme/kodlama |
-| **Gemini 2.5 Flash** | Yeni nesil, dengeli |
-| **Gemini 2.0 Flash** | Önerilen, hızlı |
-| **Gemini 2.0 Flash Lite** | Ekonomik |
-| **Gemini 1.5 Pro** | 2M token uzun bağlam |
-| **Gemini 1.5 Flash / 8B** | Hız odaklı |
+| **Gemini 3.8 Flash** | Önerilen — en yeni stabil 2026 |
+| **Gemini 4 Argon** | En güçlü frontier |
+| **Gemini 3.5 Flash** | Popüler dengeli |
+| **Gemini 2.5 Pro** | Klasik zeki |
+| **Gemini 2.5 Flash / Lite** | Hızlı / Ekonomik |
 
-Seçim hem **AYARLAR** hem **◈ MODELLER** modalından.
-
----
-
-## 🎨 Arayüz (Özgünleştirildi)
-
-- **Üst:** KaAi + Kaan Özkurt logosu, HAZIR/DİNLİYOR/KONUŞUYOR badge, mini orb, OTO göstergesi — *pencere kapat/min/max butonları yok, işletim sistemi çerçevesi kullanılır*
-- **Sol:** Zaman (AM/PM), Sistem (CPU halka + RAM/Disk bar + SES durumu, CANLI nabız), Zamanlayıcı (halka pulse) — orb konuşurken hepsi senkron titrer
-- **Orta:** 5 halkalı orb + çift glow + konuşma barları + dalga + KaAi etiketi
-- **Sağ:** Hava kartı, takvim, anımsatıcılar, **basit SVG harita** (Boğaz, ilçeler, Dolmabahçe pin, koordinat)
-- **Alt:** OTO aç/kapat, dosya gezgini, giriş, mikrofon (halka animasyonlu), v1.1 etiketi
+Eski modeller (2.0, 1.5, preview-03-25) otomatik `3.8 Flash`’a migrate edilir.
 
 ---
 
-## 📁 Proje Yapısı
+## 🖥️ Tam PC Erişimi
 
-```
-KaAi/
-├── main.js, preload.js, package.json  # Electron 1.1.0
-├── src/index.html, styles/main.css, js/app.js, js/orb.js, js/bridge.js
-├── app.py, requirements.txt
-├── assets/icon.png, icon.ico
-└── build.bat / build.sh / build_python_exe.bat
-```
+- **Sesli:** “Masaüstüne KaAi.txt oluştur içine merhaba yaz”, “Ekranımı gör”, “Notepad aç”, “Dosyalarımı göster”, “Bıraktım, raporu oluştur”
+- **Ekran:** Sağ alttan veya “ekranımı gör” deyince modal açılır, canlı yenile (2sn), prompt ile AI’ye sor.
+- **Dosya:** Gezgin + sesli oluşturma + tam `fs` erişimi.
 
 ---
 
-## 📜 Lisans
+## 🎨 HUD
 
-MIT © 2025 Kaan Özkurt — v1.1
+Üst: KaAi logosu, HAZIR/DİNLİYOR/KONUŞUYOR, mini orb, OTO. Orta: 5 halka orb + scanline + audio bars + dalga. Sol/sağ: senkron pulse, basit harita. Alt: OTO, mic (halka), v1.2.
 
-**İyi kullanımlar, efendim!**
+MIT © 2025 Kaan Özkurt — v1.2
