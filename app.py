@@ -21,16 +21,21 @@ SETTINGS_PATH = APP_DIR / "settings.json"
 
 MIGRATION_PY = {
     'gemini-2.0-flash':'gemini-3.8-flash',
-    'gemini-2.0-flash-lite':'gemini-2.5-flash-lite',
-    'gemini-2.5-flash-preview-04-17':'gemini-2.5-flash',
-    'gemini-2.5-pro-preview-03-25':'gemini-2.5-pro',
-    'gemini-1.5-pro':'gemini-2.5-pro',
-    'gemini-1.5-flash':'gemini-2.5-flash',
-    'gemini-1.5-flash-8b':'gemini-2.5-flash-lite'
+    'gemini-2.0-flash-lite':'gemini-3.5-flash-lite',
+    'gemini-2.5-flash-preview-04-17':'gemini-3.8-flash',
+    'gemini-2.5-pro-preview-03-25':'gemini-3.1-pro-preview',
+    'gemini-2.5-pro':'gemini-3.1-pro-preview',
+    'gemini-2.5-flash':'gemini-3.8-flash',
+    'gemini-2.5-flash-lite':'gemini-3.5-flash-lite',
+    'gemini-1.5-pro':'gemini-3.1-pro-preview',
+    'gemini-1.5-flash':'gemini-3.8-flash',
+    'gemini-1.5-flash-8b':'gemini-3.5-flash-lite',
+    'gemini-3-pro-preview':'gemini-3.1-pro-preview',
+    'gemini-3-flash-preview':'gemini-3.8-flash'
 }
 DEFAULT_SETTINGS = {
     "geminiApiKey": "",
-    "geminiModel": "gemini-3.8-flash",
+    "geminiModel": "gemini-3.1-pro-preview",
     "voiceRate": 0.92,
     "voicePitch": 0.82,
     "autoStartMic": True,
@@ -195,7 +200,7 @@ class Api:
         key = api_key or settings.get("geminiApiKey") or os.getenv("GEMINI_API_KEY")
         if not key:
             return {"success": False, "error": "API anahtarı ayarlanmamış. Lütfen AYARLAR bölümünden Google Gemini API anahtarınızı girin."}
-        raw = settings.get("geminiModel", "gemini-3.8-flash")
+        raw = settings.get("geminiModel", "gemini-3.1-pro-preview")
         model = MIGRATION_PY.get(raw, raw)
         if model != raw:
             settings["geminiModel"] = model
@@ -217,7 +222,7 @@ KURALLAR:
         if contents and contents[0]["role"]=="user":
             contents[0]["parts"][0]["text"] = system_prompt + "\n\nKullanıcı: " + contents[0]["parts"][0]["text"]
 
-        fallbacks = ['gemini-3.8-flash','gemini-2.5-flash','gemini-3.5-flash','gemini-2.5-flash-lite']
+        fallbacks = ['gemini-3.1-pro-preview','gemini-3.8-flash','gemini-3.5-flash','gemini-3.5-flash-lite']
         try_models = [model] + [f for f in fallbacks if f != model]
         last_err = None
         for try_model in try_models:
@@ -230,7 +235,8 @@ KURALLAR:
                 data = resp.json()
                 if not resp.ok:
                     msg = data.get("error",{}).get("message", f"API hatası {resp.status_code}")
-                    if "is not found" in msg or "not supported" in msg or "Unknown" in msg:
+                    low = msg.lower()
+                    if "is not found" in low or "not supported" in low or "unknown" in low or "no longer available" in low or "retired" in low or "deprecated" in low:
                         last_err = msg
                         continue
                     return {"success": False, "error": msg}

@@ -132,7 +132,7 @@
             <div class="stat-row"><span class="s-label">RAM</span><span class="s-val" id="ramVal">%--</span><span class="s-bar"><i id="ramBar" style="width:59%"></i></span></div>
             <div class="stat-row"><span class="s-label">DİSK</span><span class="s-val" id="diskVal">%--</span><span class="s-bar"><i id="diskBar" style="width:73%"></i></span></div>
             <div class="stat-row"><span class="s-label">SES</span><span class="s-val" id="voiceStatus">Derin Erkek</span></div>
-            <div class="stat-row"><span class="s-label">MODEL</span><span class="s-val" id="hudModel">3.8 Flash</span></div>
+            <div class="stat-row"><span class="s-label">MODEL</span><span class="s-val" id="hudModel">3.1 Pro</span></div>
           </div>
         </div>
         <div class="sys-foot">KaAi • Gerçek zamanlı • V2.0</div>
@@ -389,16 +389,16 @@
           <div class="stab" id="stab-ai">
             <h3>AI Beyin — Gemini 3</h3>
             <div class="form-group">
-              <label>Model — Stabil Gemini 3</label>
+              <label>Model — Stabil Gemini 3.1 (Oct 2026 güncel)</label>
               <select id="modelSelect">
-                <option value="gemini-3.8-flash">⚡ Gemini 3.8 Flash (önerilen — en yeni & stabil)</option>
+                <option value="gemini-3.1-pro-preview">🧠 Gemini 3.1 Pro Preview (önerilen — en zeki)</option>
+                <option value="gemini-3.8-flash">⚡ Gemini 3.8 Flash (hızlı & stabil)</option>
                 <option value="gemini-3.5-flash">🚀 Gemini 3.5 Flash (dengeli)</option>
                 <option value="gemini-4-argon">💎 Gemini 4 Argon (en güçlü)</option>
-                <option value="gemini-2.5-pro">🧠 Gemini 2.5 Pro (derin muhakeme)</option>
-                <option value="gemini-2.5-flash">✨ Gemini 2.5 Flash</option>
-                <option value="gemini-2.5-flash-lite">🍃 Lite (ekonomik)</option>
+                <option value="gemini-3.5-flash-lite">🍃 3.5 Flash-Lite (ekonomik)</option>
+                <option value="gemini-3-flash-preview">✨ 3 Flash Preview</option>
               </select>
-              <small>Otomatik fallback: hata verirse diğerini dener.</small>
+              <small>2.5 serisi 20 Ekim 2026’da emekli oldu → otomatik 3.1 Pro / 3.8 Flash’a migrate edilir. Fallback zincirli.</small>
             </div>
             <div class="form-row">
               <div class="form-group" style="flex:1"><label>Sıcaklık (Yaratıcılık)</label><input type="range" id="tempRange" min="0" max="1" step="0.05" value="0.85"><span id="tempVal">0.85</span></div>
@@ -552,12 +552,19 @@
         <button class="modal-close" id="closeModels">✕</button>
       </div>
       <div class="modal-body models-grid">
-        <div class="model-card active" data-model="gemini-3.8-flash">
-          <div class="model-badge">ÖNERİLEN • STABİL</div>
-          <h3>KaAi — Gemini 3.8 Flash</h3>
-          <p>En stabil. Hız + akıl dengesi, Türkçe ustası.</p>
-          <div class="model-meta"><span>⚡ En Yeni</span><span>🧠 Dengeli</span></div>
+        <div class="model-card active" data-model="gemini-3.1-pro-preview">
+          <div class="model-badge">ÖNERİLEN • EN ZEKİ</div>
+          <h3>KaAi — Gemini 3.1 Pro Preview</h3>
+          <p>Google’ın en zeki Pro modeli — muhakeme şampiyonu. 1M context.</p>
+          <div class="model-meta"><span>🧠 En Zeki</span><span>1M</span></div>
           <span class="badge">KURUCU: Kaan Özkurt • v2.0</span>
+        </div>
+        <div class="model-card" data-model="gemini-3.8-flash">
+          <div class="model-badge new">STABİL • HIZLI</div>
+          <h3>Gemini 3.8 Flash</h3>
+          <p>En stabil Flash — hız + kod + Türkçe.</p>
+          <div class="model-meta"><span>⚡ Hızlı</span><span>GA</span></div>
+          <button class="btn small primary model-select-btn">Seç</button>
         </div>
         <div class="model-card" data-model="gemini-4-argon">
           <div class="model-badge pro">EN GÜÇLÜ</div>
@@ -567,23 +574,16 @@
           <button class="btn small primary model-select-btn">Seç</button>
         </div>
         <div class="model-card" data-model="gemini-3.5-flash">
-          <div class="model-badge new">POPÜLER</div>
           <h3>Gemini 3.5 Flash</h3>
-          <p>Yüksek hacim + mantık.</p>
-          <div class="model-meta"><span>🚀 Hızlı</span></div>
+          <p>Dengeli, ekonomik Flash.</p>
           <button class="btn small model-select-btn">Seç</button>
         </div>
-        <div class="model-card" data-model="gemini-2.5-pro">
-          <h3>Gemini 2.5 Pro</h3>
-          <p>Derin muhakeme mirası.</p>
+        <div class="model-card" data-model="gemini-3.5-flash-lite">
+          <h3>3.5 Flash-Lite</h3>
+          <p>En ekonomik — free tier.</p>
           <button class="btn small model-select-btn">Seç</button>
         </div>
-        <div class="model-card" data-model="gemini-2.5-flash-lite">
-          <h3>Flash-Lite</h3>
-          <p>Ekonomik.</p>
-          <button class="btn small model-select-btn">Seç</button>
-        </div>
-        <p class="hint">Otomatik fallback’li. Tıkla, anında aktif.</p>
+        <p class="hint">Gemini 2.5 emekli (20 Eki 2026). Tıkla, otomatik migrate.</p>
       </div>
     </div>
   </div>
