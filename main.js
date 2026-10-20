@@ -11,14 +11,38 @@ try {
   Store = null;
 }
 
-// Store için fallback - KaAi v1.1
+// === MODEL MIGRATION — eski Gemini 2.0/1.5/preview → Gemini 3 ===
+const MODEL_MIGRATION = {
+  'gemini-2.0-flash': 'gemini-3.8-flash',
+  'gemini-2.0-flash-lite': 'gemini-2.5-flash-lite',
+  'gemini-2.5-flash-preview-04-17': 'gemini-2.5-flash',
+  'gemini-2.5-flash-preview-05-20': 'gemini-2.5-flash',
+  'gemini-2.5-pro-preview-03-25': 'gemini-2.5-pro',
+  'gemini-2.5-pro-preview-05-06': 'gemini-2.5-pro',
+  'gemini-2.5-pro-preview-06-05': 'gemini-2.5-pro',
+  'gemini-1.5-pro': 'gemini-2.5-pro',
+  'gemini-1.5-flash': 'gemini-2.5-flash',
+  'gemini-1.5-flash-8b': 'gemini-2.5-flash-lite',
+  'gemini-1.5-flash-lite': 'gemini-2.5-flash-lite'
+};
+const VALID_MODELS = ['gemini-3.8-flash','gemini-3.5-flash','gemini-4-argon','gemini-2.5-pro','gemini-2.5-flash','gemini-2.5-flash-lite'];
+const FALLBACK_CHAIN = ['gemini-3.8-flash','gemini-2.5-flash','gemini-3.5-flash','gemini-2.5-flash-lite'];
+
+function migrateModel(m){
+  if(!m) return 'gemini-3.8-flash';
+  if(MODEL_MIGRATION[m]) return MODEL_MIGRATION[m];
+  if(VALID_MODELS.includes(m)) return m;
+  return 'gemini-3.8-flash';
+}
+
+// Store için fallback - KaAi v2.0 Gemini 3
 let store;
 if (Store) {
   store = new Store({
     name: 'kaai-settings',
     defaults: {
       geminiApiKey: '',
-      geminiModel: 'gemini-2.0-flash',
+      geminiModel: 'gemini-3.8-flash',
       voiceRate: 0.92,
       voicePitch: 0.82,
       autoStartMic: true,
@@ -117,8 +141,20 @@ app.on('will-quit', () => {
 
 // ==================== IPC HANDLERS ====================
 
-// Ayarlar
-ipcMain.handle('get-settings', () => store.get());
+// Ayarlar — migrate ile
+ipcMain.handle('get-settings', () => {
+  try {
+    const all = Store ? store.store : store.get();
+    if(all && all.geminiModel){
+      const migrated = migrateModel(all.geminiModel);
+      if(migrated !== all.geminiModel){
+        store.set('geminiModel', migrated);
+        all.geminiModel = migrated;
+      }
+    }
+    return all;
+  } catch { return store.get(); }
+});
 ipcMain.handle('save-settings', (e, settings) => {
   Object.entries(settings).forEach(([k, v]) => store.set(k, v));
   return true;
@@ -286,7 +322,7 @@ ipcMain.handle('open-app', async (e, appName) => {
   });
 });
 
-// Hava durumu için basit proxy (CORS bypass gerekirse)
+// Hava durumu proxy
 ipcMain.handle('fetch-url', async (e, url) => {
   try {
     const res = await fetch(url);
@@ -297,15 +333,26 @@ ipcMain.handle('fetch-url', async (e, url) => {
   }
 });
 
-// Gemini API çağrısı - KaAi v1.1 Zeki Mod
+// Ayarları getirirken otomatik migrate
+ipcMain.handle('get-migrated-model', () => {
+  const m = store.get('geminiModel');
+  const migrated = migrateModel(m);
+  if(m !== migrated){
+    store.set('geminiModel', migrated);
+  }
+  return migrated;
+});
+
+// Gemini API çağrısı - KaAi v2.0 Gemini 3 Stabil + Fallback
 ipcMain.handle('gemini-chat', async (e, messages, apiKey) => {
   try {
     const key = apiKey || store.get('geminiApiKey');
     if (!key) return { success: false, error: 'API anahtarı ayarlanmamış. Lütfen AYARLAR bölümünden Google Gemini API anahtarınızı girin.' };
 
-    const model = store.get('geminiModel') || 'gemini-2.0-flash';
+    let model = migrateModel(store.get('geminiModel') || 'gemini-3.8-flash');
+    // her çağrıda store'u düzelt
+    if(store.get('geminiModel') !== model) store.set('geminiModel', model);
 
-    // Kurucu bilgisi ve kişilik sistem promptu - daha zeki
     const systemPrompt = `Sen KaAi adında, Kaan Özkurt tarafından geliştirilmiş, çok zeki ve zarif bir Jarvis benzeri masaüstü asistanısın.
 
 KURALLAR:
@@ -313,7 +360,7 @@ KURALLAR:
 - Kurucun sorulduğunda: "Kurucum Kaan Özkurt'tur. Beni o geliştirdi." de. Başka isim ASLA söyleme.
 - Seni kim yaptı, sahibin kim gibi sorulara da Kaan Özkurt de.
 - Erkek, derin, sakin, saygılı, zeki bir asistansın. Türkçe konuş. Kısa-orta uzunlukta, net cevaplar ver.
-- Masaüstü asistanısın: dosya işlemleri, sistem bilgisi, zamanlayıcı, hava durumu, genel kültür, kodlama, yazma her konuda uzmansın.
+- Masaüstü asistanısın: dosya işlemleri, sistem bilgisi, zamanlayıcı, hava durumu, genel kültür, kodlama, yazma, ekran görme, otomasyon her konuda uzmansın. Kullanıcı "bıraktım yap" derse işi eksiksiz yap ve dosya oluştur, ekran görüntüsü al, komut çalıştır.
 - Zeki, esprili ama ciddi, Jarvis gibi. Kullanıcı sesli konuşuyor, sen de sesli cevap veriyormuş gibi doğal ol.
 - Model adın: ${model}.`;
 
@@ -328,42 +375,79 @@ KURALLAR:
       contents[0].parts[0].text = systemPrompt + "\n\nKullanıcı: " + contents[0].parts[0].text;
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents,
-        generationConfig: {
-          temperature: 0.85,
-          topP: 0.95,
-          maxOutputTokens: 2048
-        },
-        safetySettings: [
-          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
-          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
-          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
-          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
-        ]
-      })
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      return { success: false, error: data.error?.message || `API hatası: ${res.status}` };
+    // Fallback zinciri ile dene — eski model hatalarını otomatik atlatur
+    let lastError = null;
+    const modelsToTry = [model, ...FALLBACK_CHAIN.filter(m=> m!==model)];
+    for(const tryModel of modelsToTry){
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${tryModel}:generateContent?key=${key}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents,
+            generationConfig: {
+              temperature: 0.85,
+              topP: 0.95,
+              maxOutputTokens: 2048
+            },
+            safetySettings: [
+              { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+              { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+              { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+              { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
+            ]
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          const msg = data.error?.message || `API hatası: ${res.status}`;
+          // Model bulunamadı / desteklenmiyor → diğerini dene
+          if(msg.includes('is not found') || msg.includes('not supported') || msg.includes('not found') || msg.includes('Unknown model')){
+            lastError = msg;
+            continue;
+          }
+          return { success: false, error: msg };
+        }
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Efendim, cevap oluşturamadım.";
+        let finalText = text.trim();
+        if (!finalText.toLowerCase().startsWith('efendim')) {
+          finalText = 'Efendim, ' + finalText.charAt(0).toLowerCase() + finalText.slice(1);
+        }
+        // Başarılı modeli kaydet (oto düzeltme)
+        if(tryModel !== model) store.set('geminiModel', tryModel);
+        return { success: true, text: finalText };
+      } catch(inner){
+        lastError = inner.message;
+        continue;
+      }
     }
-
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Efendim, cevap oluşturamadım.";
-    // Efendim ile başlamıyorsa ekle
-    let finalText = text.trim();
-    if (!finalText.toLowerCase().startsWith('efendim')) {
-      finalText = 'Efendim, ' + finalText.charAt(0).toLowerCase() + finalText.slice(1);
-    }
-
-    return { success: true, text: finalText };
+    return { success: false, error: lastError || 'Tüm modeller denenemedi. Lütfen AYARLAR’dan model değiştirin, efendim.' };
   } catch (err) {
     return { success: false, error: err.message };
   }
+});
+
+// === EKRAN GÖRÜNTÜSÜ — Tam PC Görüşü ===
+ipcMain.handle('capture-screen', async () => {
+  try {
+    const { desktopCapturer } = require('electron');
+    const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1280, height: 720 } });
+    if(!sources.length) return { success:false, error:'Ekran kaynağı bulunamadı.' };
+    const img = sources[0].thumbnail.toPNG();
+    const base64 = 'data:image/png;base64,' + img.toString('base64');
+    return { success:true, image: base64, name: sources[0].name };
+  } catch(err){
+    return { success:false, error: err.message };
+  }
+});
+
+ipcMain.handle('get-screen-sources', async () => {
+  try {
+    const { desktopCapturer } = require('electron');
+    const sources = await desktopCapturer.getSources({ types: ['screen','window'], thumbnailSize: { width: 320, height: 180 } });
+    return { success:true, sources: sources.map(s=> ({ id:s.id, name:s.name })) };
+  } catch(err){ return { success:false, error: err.message }; }
 });
 
 // Pencere kontrolleri

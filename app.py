@@ -19,9 +19,18 @@ APP_DIR = pathlib.Path.home() / ".kaai"
 APP_DIR.mkdir(exist_ok=True)
 SETTINGS_PATH = APP_DIR / "settings.json"
 
+MIGRATION_PY = {
+    'gemini-2.0-flash':'gemini-3.8-flash',
+    'gemini-2.0-flash-lite':'gemini-2.5-flash-lite',
+    'gemini-2.5-flash-preview-04-17':'gemini-2.5-flash',
+    'gemini-2.5-pro-preview-03-25':'gemini-2.5-pro',
+    'gemini-1.5-pro':'gemini-2.5-pro',
+    'gemini-1.5-flash':'gemini-2.5-flash',
+    'gemini-1.5-flash-8b':'gemini-2.5-flash-lite'
+}
 DEFAULT_SETTINGS = {
     "geminiApiKey": "",
-    "geminiModel": "gemini-2.0-flash",
+    "geminiModel": "gemini-3.8-flash",
     "voiceRate": 0.92,
     "voicePitch": 0.82,
     "autoStartMic": True,
@@ -186,7 +195,11 @@ class Api:
         key = api_key or settings.get("geminiApiKey") or os.getenv("GEMINI_API_KEY")
         if not key:
             return {"success": False, "error": "API anahtarı ayarlanmamış. Lütfen AYARLAR bölümünden Google Gemini API anahtarınızı girin."}
-        model = settings.get("geminiModel", "gemini-2.0-flash")
+        raw = settings.get("geminiModel", "gemini-3.8-flash")
+        model = MIGRATION_PY.get(raw, raw)
+        if model != raw:
+            settings["geminiModel"] = model
+            save_settings(settings)
 
         system_prompt = f"""Sen KaAi adında, Kaan Özkurt tarafından geliştirilmiş, çok zeki ve zarif bir Jarvis benzeri masaüstü asistanısın.
 KURALLAR:
@@ -194,7 +207,8 @@ KURALLAR:
 - Kurucun sorulduğunda: "Kurucum Kaan Özkurt'tur. Beni o geliştirdi." de. Başka isim ASLA söyleme.
 - Seni kim yaptı sorularına "Beni Kaan Özkurt geliştirdi." de.
 - Erkek, derin, sakin, saygılı, zeki bir asistansın. Türkçe konuş. Kısa-orta net cevaplar ver.
-- Masaüstü asistanısın: dosya, sistem, zamanlayıcı, kodlama her konuda uzmansın. Model adın: {model}."""
+- Masaüstü asistanısın: dosya, sistem, zamanlayıcı, hava durumu, kodlama, yazma, ekran görme, otomasyon her konuda uzmansın. Kullanıcı "bıraktım yap" derse işi eksiksiz yap.
+- Model adın: {model}."""
 
         contents = []
         for m in messages:
@@ -203,24 +217,54 @@ KURALLAR:
         if contents and contents[0]["role"]=="user":
             contents[0]["parts"][0]["text"] = system_prompt + "\n\nKullanıcı: " + contents[0]["parts"][0]["text"]
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+        fallbacks = ['gemini-3.8-flash','gemini-2.5-flash','gemini-3.5-flash','gemini-2.5-flash-lite']
+        try_models = [model] + [f for f in fallbacks if f != model]
+        last_err = None
+        for try_model in try_models:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{try_model}:generateContent?key={key}"
+                resp = requests.post(url, json={
+                    "contents": contents,
+                    "generationConfig": {"temperature": 0.85, "topP": 0.95, "maxOutputTokens": 2048}
+                }, timeout=30)
+                data = resp.json()
+                if not resp.ok:
+                    msg = data.get("error",{}).get("message", f"API hatası {resp.status_code}")
+                    if "is not found" in msg or "not supported" in msg or "Unknown" in msg:
+                        last_err = msg
+                        continue
+                    return {"success": False, "error": msg}
+                text = data["candidates"][0]["content"]["parts"][0]["text"]
+                if not text.lower().startswith("efendim"):
+                    text = "Efendim, " + text[0].lower() + text[1:]
+                if try_model != model:
+                    settings["geminiModel"] = try_model
+                    save_settings(settings)
+                return {"success": True, "text": text}
+            except Exception as e:
+                last_err = str(e)
+                continue
+        return {"success": False, "error": last_err or "Tüm modeller denenemedi, efendim."}
+
+    def capture_screen(self):
         try:
-            resp = requests.post(url, json={
-                "contents": contents,
-                "generationConfig": {"temperature": 0.85, "topP": 0.95, "maxOutputTokens": 2048}
-            }, timeout=30)
-            data = resp.json()
-            if not resp.ok:
-                return {"success": False, "error": data.get("error",{}).get("message", f"API hatası {resp.status_code}")}
-            text = data["candidates"][0]["content"]["parts"][0]["text"]
-            if not text.lower().startswith("efendim"):
-                text = "Efendim, " + text[0].lower() + text[1:]
-            return {"success": True, "text": text}
+            import base64
+            from PIL import ImageGrab
+            img = ImageGrab.grab()
+            import io
+            buf = io.BytesIO()
+            img.thumbnail((1280,720))
+            img.save(buf, format='PNG')
+            b64 = base64.b64encode(buf.getvalue()).decode()
+            return {"success": True, "image": "data:image/png;base64,"+b64}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
+    def get_screen_sources(self):
+        return {"success": True, "sources": []}
+
     def get_app_version(self):
-        return "1.1.0"
+        return "1.2.0"
 
 def get_entrypoint():
     # PyInstaller için path düzeltme
@@ -242,7 +286,7 @@ if __name__ == "__main__":
     print(f"Ayarlar: {SETTINGS_PATH}")
 
     window = webview.create_window(
-        "KaAi v1.1 | Kurucu: Kaan Özkurt",
+        "KaAi v2.0 Gemini 3 | Kurucu: Kaan Özkurt",
         entry,
         width=1366,
         height=768,

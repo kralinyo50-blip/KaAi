@@ -31,6 +31,8 @@
       execCommand: (cmd,cwd) => py.exec_command(cmd,cwd),
       openApp: (name) => py.open_app(name),
       geminiChat: (msgs) => py.gemini_chat(msgs),
+      captureScreen: () => py.capture_screen(),
+      getScreenSources: () => py.get_screen_sources(),
       fetchUrl: (url) => fetch(url).then(r=>r.json()).then(d=>({success:true,data:d})).catch(e=>({success:false,error:e.message})),
       minimize: () => {},
       maximize: () => {},
