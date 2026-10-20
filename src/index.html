@@ -3,78 +3,94 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KaAI - ALPAI</title>
+  <title>KaAi — Kaan Özkurt</title>
   <link rel="stylesheet" href="styles/main.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
-  <!-- Top Bar -->
+  <!-- Top Bar - KaAi Branding -->
   <header class="top-bar">
     <div class="top-left">
-      <span class="logo">ALPAI</span>
-      <span class="status-badge speaking" id="speakingBadge">KONUŞUYOR</span>
+      <div class="logo-wrap">
+        <span class="logo">KaAi</span>
+        <span class="logo-sub">Kaan Özkurt</span>
+      </div>
+      <span class="status-badge" id="speakingBadge">HAZIR</span>
+      <span class="live-dot" id="liveDot" title="Otomatik dinleme aktif"></span>
     </div>
     <div class="top-center">
-      <!-- boşluk / grid çizgileri için -->
+      <div class="top-orb-mini" id="topOrbMini"></div>
+      <span class="top-mode" id="topMode">SES MODU</span>
     </div>
     <div class="top-right">
       <span class="indicator mic-on" id="micIndicator"><span class="dot"></span> MİKROFON AÇIK</span>
       <span class="indicator cam-off"><span class="dot off"></span> KAMERA KAPALI</span>
-      <button class="top-btn" id="btnModels">AI MODELLERİ</button>
-      <button class="top-btn" id="btnSettings">AYARLAR</button>
+      <button class="top-btn primary" id="btnModels">◈ MODELLER</button>
+      <button class="top-btn" id="btnSettings">⚙ AYARLAR</button>
       <span class="clock-top" id="clockTop">02:49</span>
-      <div class="window-controls">
-        <button class="win-btn" id="winMin">—</button>
-        <button class="win-btn" id="winMax">□</button>
-        <button class="win-btn close" id="winClose">✕</button>
-      </div>
     </div>
   </header>
 
   <div class="main-layout">
-    <!-- LEFT PANEL -->
-    <aside class="left-panel">
-      <!-- ZAMAN -->
-      <div class="panel-section">
-        <div class="circular-widget large">
+    <!-- LEFT PANEL - Yeniden tasarlandı -->
+    <aside class="left-panel" id="leftPanel">
+      <div class="panel-accent"></div>
+
+      <!-- ZAMAN - KaAi stili -->
+      <div class="panel-section time-section">
+        <div class="section-head">
+          <span class="section-label cyan">ZAMAN</span>
+          <span class="section-dot"></span>
+        </div>
+        <div class="circular-widget large" id="timeWidget">
           <svg class="circle-svg" viewBox="0 0 100 100">
             <circle cx="50" cy="50" r="42" class="bg" />
             <circle cx="50" cy="50" r="42" class="progress time-progress" id="timeProgress" />
             <circle cx="50" cy="50" r="30" class="inner" />
+            <circle cx="50" cy="50" r="6" class="center-dot" />
           </svg>
           <div class="circle-content">
             <span class="big-time" id="bigTime">02:49</span>
+            <span class="time-ampm" id="timeAmpm">GECE</span>
           </div>
-          <div class="tick-marks"></div>
         </div>
-        <div class="section-label cyan">ZAMAN</div>
         <div class="section-sub" id="dateLabel">SALI · 20 EKİM</div>
+        <div class="kai-line"></div>
       </div>
 
-      <!-- SİSTEM -->
-      <div class="panel-section system-section">
-        <div class="circular-widget small">
-          <svg class="circle-svg" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="42" class="bg" />
-            <circle cx="50" cy="50" r="42" class="progress" id="cpuProgress" />
-          </svg>
-          <div class="circle-content">
-            <span class="cpu-val" id="cpuVal">66</span>
-            <span class="cpu-lbl">CPU %</span>
+      <!-- SİSTEM - Canlı senkronize -->
+      <div class="panel-section system-section" id="systemSection">
+        <div class="section-head">
+          <span class="section-label cyan">SİSTEM</span>
+          <span class="live-indicator"><span class="pulse"></span> CANLI</span>
+        </div>
+        <div class="sys-grid">
+          <div class="circular-widget small" id="cpuWidget">
+            <svg class="circle-svg" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="42" class="bg" />
+              <circle cx="50" cy="50" r="42" class="progress" id="cpuProgress" />
+            </svg>
+            <div class="circle-content">
+              <span class="cpu-val" id="cpuVal">--</span>
+              <span class="cpu-lbl">CPU</span>
+            </div>
+          </div>
+          <div class="system-stats">
+            <div class="stat-row"><span class="s-label">PİL</span><span class="s-val" id="batteryVal">%100</span><span class="s-bar"><i id="batteryBar" style="width:100%"></i></span></div>
+            <div class="stat-row"><span class="s-label">RAM</span><span class="s-val" id="ramVal">%--</span><span class="s-bar"><i id="ramBar" style="width:59%"></i></span></div>
+            <div class="stat-row"><span class="s-label">DİSK</span><span class="s-val" id="diskVal">%--</span><span class="s-bar"><i id="diskBar" style="width:73%"></i></span></div>
+            <div class="stat-row"><span class="s-label">SES</span><span class="s-val" id="voiceStatus">Derin Erkek</span></div>
           </div>
         </div>
-        <div class="system-stats">
-          <div class="section-label cyan">SİSTEM</div>
-          <div class="stat-row"><span class="s-label">PİL</span><span class="s-val" id="batteryVal">%100 · şarj</span></div>
-          <div class="stat-row"><span class="s-label">RAM</span><span class="s-val" id="ramVal">%59</span></div>
-          <div class="stat-row"><span class="s-label">DİSK</span><span class="s-val" id="diskVal">%73 dolu</span></div>
-        </div>
+        <div class="sys-foot">KaAi • Otomatik senkron</div>
       </div>
 
-      <!-- ZAMANLAYICI -->
-      <div class="panel-section timer-section">
-        <div class="circular-widget medium">
+      <!-- ZAMANLAYICI - Geliştirildi -->
+      <div class="panel-section timer-section" id="timerSection">
+        <div class="section-head">
+          <span class="section-label cyan">ZAMANLAYICI</span>
+          <span class="timer-icon">◷</span>
+        </div>
+        <div class="circular-widget medium" id="timerWidget">
           <svg class="circle-svg" viewBox="0 0 100 100">
             <circle cx="50" cy="50" r="42" class="bg" />
             <circle cx="50" cy="50" r="42" class="progress timer-progress" id="timerProgress" />
@@ -83,9 +99,9 @@
             <span class="timer-digits" id="timerDigits">--:--</span>
             <span class="timer-status" id="timerStatus">HAZIR</span>
           </div>
+          <div class="timer-pulse" id="timerPulse"></div>
         </div>
-        <div class="section-label cyan">ZAMANLAYICI</div>
-        <div class="section-sub small">“ON DAKİKALIK ZAMANLAYICI KUR”<br>DE</div>
+        <div class="section-sub small">“Beş dakikalık zamanlayıcı kur” de<br>veya butonlara dokun</div>
         <div class="timer-buttons">
           <button class="t-btn" data-min="1">1 DK</button>
           <button class="t-btn" data-min="5">5 DK</button>
@@ -94,148 +110,230 @@
         </div>
         <button class="t-btn full" id="btnChronometer"><span class="icon">⏱</span> KRONOMETRE</button>
       </div>
+
+      <div class="left-foot">© Kaan Özkurt • KaAi v1.1</div>
     </aside>
 
     <!-- CENTER - ORB -->
     <main class="center-stage">
       <div class="grid-bg"></div>
+      <div class="orb-audio-bars" id="audioBars">
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
       <div class="orb-container" id="orbContainer">
         <div class="orb-rings">
           <div class="ring ring1"></div>
           <div class="ring ring2"></div>
           <div class="ring ring3"></div>
           <div class="ring ring4"></div>
+          <div class="ring ring5"></div>
         </div>
         <div class="orb-core" id="orbCore">
           <div class="orb-glow"></div>
+          <div class="orb-glow-2"></div>
           <div class="orb-dot"></div>
+          <div class="orb-ring-pulse"></div>
           <canvas id="orbCanvas" width="400" height="400"></canvas>
         </div>
         <div class="orb-arc arc-left"></div>
         <div class="orb-arc arc-right"></div>
         <div class="orb-ticks"></div>
+        <div class="orb-label">KaAi</div>
       </div>
-      <div class="center-status" id="centerStatus">Dinliyorum, efendim...</div>
+      <div class="center-status" id="centerStatus">Otomatik dinlemedeyim, efendim...</div>
+      <div class="auto-listen-indicator" id="autoListenIndicator">
+        <span class="ali-dot"></span> Otomatik algılama açık — konuşmanız bekleniyor
+      </div>
       <div class="transcript" id="transcript">
         <div class="transcript-user" id="transcriptUser"></div>
-        <div class="transcript-ai" id="transcriptAi">Efendim, size nasıl yardımcı olabilirim?</div>
+        <div class="transcript-ai" id="transcriptAi">Efendim, ben KaAi. Kaan Özkurt tarafından geliştirildim. Size nasıl yardımcı olabilirim?</div>
+      </div>
+      <div class="voice-wave" id="voiceWave">
+        <span></span><span></span><span></span><span></span><span></span>
       </div>
     </main>
 
-    <!-- RIGHT PANEL -->
+    <!-- RIGHT PANEL - Sadeleştirildi -->
     <aside class="right-panel">
-      <!-- Hava -->
+      <div class="panel-accent right"></div>
+
+      <!-- Hava - Basit ve şık -->
       <div class="weather-card">
         <div class="weather-top">
-          <span class="temp-big">17°</span>
+          <span class="temp-big" id="tempBig">17°</span>
           <div class="weather-loc">
             <span class="loc-name">DOLMABAHÇE</span>
-            <span class="loc-desc">bulutlu</span>
+            <span class="loc-desc" id="weatherDesc">parçalı bulutlu</span>
           </div>
-          <span class="weather-icon">☁</span>
+          <div class="weather-icon-wrap">
+            <span class="weather-icon" id="weatherIcon">⛅</span>
+          </div>
         </div>
         <div class="weather-range">
-          <span>17°</span>
-          <div class="range-bar"><div class="range-fill" style="left:20%; width:35%"></div><span class="range-dot" style="left:35%"></span></div>
-          <span>20°</span>
+          <span>14°</span>
+          <div class="range-bar"><div class="range-fill" style="left:20%; width:45%"></div><span class="range-dot" style="left:42%"></span></div>
+          <span>22°</span>
         </div>
+        <div class="weather-foot">İstanbul • Otomatik konum</div>
       </div>
-      <div class="section-label cyan small">HAVA</div>
+      <div class="section-label cyan small">HAVA DURUMU</div>
 
       <!-- Takvim -->
-      <div class="panel-card">
-        <div class="section-label cyan small">TAKVİM</div>
-        <div class="big-zero">0 <span>BUGÜN</span></div>
+      <div class="panel-card calendar-card">
+        <div class="card-head">
+          <span class="section-label cyan small">TAKVİM</span>
+          <span class="card-action">+</span>
+        </div>
+        <div class="big-zero" id="calendarCount">0 <span>BUGÜN</span></div>
         <div class="mini-calendar" id="miniCalendar"></div>
-        <div class="hint">Bugün takviminizde etkinlik yok.</div>
+        <div class="hint" id="calendarHint">Bugün takviminizde etkinlik yok.</div>
+        <div class="calendar-dots"><span class="active"></span><span></span><span></span></div>
       </div>
 
       <!-- Anımsatıcılar -->
-      <div class="panel-card">
-        <div class="section-label cyan small">ANIMSATICILAR</div>
+      <div class="panel-card reminder-card">
+        <div class="card-head">
+          <span class="section-label cyan small">ANIMSATICILAR</span>
+          <span class="badge-new">YENİ</span>
+        </div>
         <div class="big-zero">0 <span>AÇIK</span></div>
-        <div class="mini-calendar"></div>
-        <div class="hint">Bekleyen anımsatıcı yok.</div>
+        <div class="hint">Bekleyen anımsatıcı yok. “Yarın 9’da hatırlat” deyin.</div>
         <div id="remindersList" class="reminders-list"></div>
       </div>
 
-      <!-- Harita -->
-      <div class="map-card">
-        <div id="map"></div>
-        <div class="map-coords">41.033° 28.983°</div>
+      <!-- Harita - Basitleştirildi, Leaflet yok -->
+      <div class="map-card-simple" id="mapCard">
+        <div class="map-header">
+          <span class="map-title">HARİTA</span>
+          <span class="map-live">● CANLI</span>
+        </div>
+        <div class="map-visual" id="mapVisual">
+          <svg viewBox="0 0 300 160" class="mini-map-svg">
+            <!-- Basit İstanbul haritası -->
+            <rect x="0" y="0" width="300" height="160" rx="8" fill="#06141a" stroke="rgba(122,240,255,0.2)"/>
+            <!-- Boğaz -->
+            <path d="M 150 10 Q 145 80 152 150" stroke="rgba(122,240,255,0.35)" stroke-width="6" fill="none" opacity="0.5"/>
+            <!-- İlçeler noktalar -->
+            <circle cx="110" cy="55" r="3" fill="#7af0ff" opacity="0.9"/> <!-- Eyüpsultan -->
+            <text x="88" y="48" font-size="7" fill="#7a9aaa">Eyüpsultan</text>
+            <circle cx="130" cy="85" r="2.5" fill="#7a9aaa" opacity="0.7"/>
+            <text x="108" y="92" font-size="6" fill="#7a9aaa">Beyoğlu</text>
+            <circle cx="165" cy="70" r="3" fill="#7af0ff" opacity="0.9"/> <!-- Beşiktaş -->
+            <text x="172" y="68" font-size="7" fill="#7af0ff">Beşiktaş</text>
+            <circle cx="185" cy="95" r="2.5" fill="#7a9aaa" opacity="0.7"/>
+            <text x="188" y="102" font-size="6" fill="#7a9aaa">Üsküdar</text>
+            <circle cx="95" cy="100" r="2" fill="#7a9aaa" opacity="0.5"/>
+            <text x="68" y="113" font-size="6" fill="#7a9aaa">Bayrampaşa</text>
+            <circle cx="135" cy="110" r="2" fill="#ff6a00" opacity="0.8"/>
+            <text x="120" y="123" font-size="6" fill="#ff6a00">Fatih</text>
+            <!-- Ana konum Dolmabahçe -->
+            <g id="dolmabahceMarker">
+              <circle cx="155" cy="78" r="8" fill="rgba(122,240,255,0.2)" stroke="#7af0ff" stroke-width="1.5"/>
+              <circle cx="155" cy="78" r="3.5" fill="#7af0ff"/>
+              <circle cx="155" cy="78" r="1.5" fill="#fff"/>
+            </g>
+          </svg>
+          <div class="map-coords">41.039° N • 28.992° E</div>
+          <div class="map-pin-label">📍 Dolmabahçe</div>
+        </div>
+        <div class="map-label">DOLMABAHÇE • İSTANBUL • TÜRKİYE</div>
+        <div class="map-actions">
+          <button class="map-btn" id="mapLocate">Konumumu göster</button>
+          <button class="map-btn" id="mapOpenOSM">Haritada aç</button>
+        </div>
       </div>
-      <div class="section-label cyan small">HARİTA</div>
-      <div class="map-label">DOLMABAHÇE · TURKEY</div>
-      <div class="map-copy">© OpenStreetMap katkıcıları</div>
     </aside>
   </div>
 
-  <!-- Bottom Bar -->
+  <!-- Bottom Bar - Pencere kontrolleri kaldırıldı -->
   <footer class="bottom-bar">
     <div class="bottom-left">
-      <button class="attach-btn" id="btnAttach" title="Dosya ekle">📎</button>
+      <button class="attach-btn" id="btnAttach" title="Dosya gezgini">📎</button>
+      <button class="auto-btn" id="autoToggle" title="Otomatik dinleme">◉ OTO</button>
       <span class="input-hint">› KONUŞ YA DA YAZ</span>
     </div>
     <div class="bottom-center">
-      <input type="text" id="textInput" placeholder="Bir şeyler söyleyin veya yazın... (Enter ile gönder)" autocomplete="off">
-      <button class="mic-btn" id="micBtn" title="Konuş (Alt+Space)">
+      <input type="text" id="textInput" placeholder="Otomatik dinlemedeyim — konuşun veya yazın... (Enter)" autocomplete="off">
+      <button class="mic-btn" id="micBtn" title="Basılı tut konuş (otomatik algılama aktif)">
         <span class="mic-icon">🎤</span>
+        <span class="mic-pulse"></span>
       </button>
       <button class="send-btn" id="sendBtn">GÖNDER</button>
     </div>
     <div class="bottom-right">
-      <span class="mode-toggle" id="modeToggle">.... / YAZ</span>
-      <button class="info-btn" id="infoBtn">ⓘ</button>
-      <button class="close-btn" id="bottomClose">⏻ KAPAT</button>
+      <span class="mode-toggle" id="modeToggle">OTO • YAZ</span>
+      <button class="info-btn" id="infoBtn" title="KaAi hakkında">ⓘ</button>
+      <span class="version">v1.1 • KaAi</span>
     </div>
   </footer>
 
-  <!-- SETTINGS MODAL -->
+  <!-- SETTINGS MODAL - Direkt API link -->
   <div class="modal-overlay" id="settingsModal">
     <div class="modal">
       <div class="modal-header">
-        <h2>⚙ AYARLAR</h2>
+        <h2>⚙ KaAi AYARLAR</h2>
         <button class="modal-close" id="closeSettings">✕</button>
       </div>
       <div class="modal-body">
+        <div class="api-cta">
+          <div class="api-cta-icon">🔑</div>
+          <div class="api-cta-text">
+            <strong>Google Gemini API Anahtarı Gerekli</strong>
+            <span>Ücretsiz, 30 saniyede alın</span>
+          </div>
+          <button class="btn primary cta" id="getApiKeyBtn">API ANAHTARI AL →</button>
+        </div>
+
         <div class="form-group">
-          <label>Google Gemini API Anahtarı *</label>
-          <input type="password" id="apiKeyInput" placeholder="AIza...">
-          <small><a href="#" id="howToGetKey">Nasıl alırım?</a> — <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a> adresinden ücretsiz alın.</small>
+          <label>API Anahtarınız *</label>
+          <input type="password" id="apiKeyInput" placeholder="AIzaSy...">
+          <small>Yapıştırın ve kaydedin. Anahtar yalnızca cihazınızda kalır.</small>
         </div>
         <div class="form-group">
-          <label>Model</label>
+          <label>AI Modeli — Daha zeki modeller eklendi</label>
           <select id="modelSelect">
-            <option value="gemini-2.0-flash">gemini-2.0-flash (önerilen)</option>
-            <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite</option>
-            <option value="gemini-1.5-flash">gemini-1.5-flash</option>
-            <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+            <option value="gemini-2.0-flash">⚡ Gemini 2.0 Flash (önerilen — hızlı)</option>
+            <option value="gemini-2.5-flash-preview-04-17">🚀 Gemini 2.5 Flash Preview (en yeni)</option>
+            <option value="gemini-2.5-pro-preview-03-25">🧠 Gemini 2.5 Pro Preview (en zeki)</option>
+            <option value="gemini-2.0-flash-lite">🍃 Gemini 2.0 Flash Lite (ekonomik)</option>
+            <option value="gemini-1.5-pro">🏔 Gemini 1.5 Pro (uzun bağlam)</option>
+            <option value="gemini-1.5-flash">⚡ Gemini 1.5 Flash</option>
+            <option value="gemini-1.5-flash-8b">💨 Gemini 1.5 Flash 8B (en hızlı)</option>
           </select>
+          <small>2.5 Pro en zeki, 2.0 Flash en dengeli.</small>
         </div>
         <div class="form-group">
-          <label>Ses Hızı</label>
-          <input type="range" id="voiceRate" min="0.5" max="1.5" step="0.1" value="1">
-          <span id="voiceRateVal">1.0</span>
+          <label>Ses — Derin Erkek Sesi</label>
+          <div class="voice-row">
+            <input type="range" id="voiceRate" min="0.6" max="1.4" step="0.1" value="0.92">
+            <span id="voiceRateVal">0.92</span>
+            <input type="range" id="voicePitch" min="0.5" max="1.2" step="0.05" value="0.82">
+            <span id="voicePitchVal">0.82</span>
+          </div>
+          <small>Hız 0.92 + Perde 0.82 = derin erkek sesi ön ayarı. <a href="#" id="testVoiceBtn">🔊 Dene</a></small>
         </div>
         <div class="form-group">
           <label>Konum (Hava Durumu)</label>
           <input type="text" id="locationInput" placeholder="Dolmabahçe, Istanbul">
         </div>
         <div class="form-group checkbox">
-          <label><input type="checkbox" id="autoStartMic" checked> Başlangıçta mikrofonu aç</label>
+          <label><input type="checkbox" id="autoStartMic" checked> Otomatik dinlemeyi başlat (konuşunca algılar)</label>
         </div>
         <div class="form-group checkbox">
           <label><input type="checkbox" id="alwaysEfendim" checked> Her cevap "Efendim," ile başlasın</label>
+        </div>
+        <div class="form-group checkbox">
+          <label><input type="checkbox" id="deepVoice" checked> Derin erkek sesi kullan (önerilen)</label>
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn primary" id="saveSettingsBtn">KAYDET</button>
         <button class="btn" id="cancelSettingsBtn">İPTAL</button>
-        <button class="btn danger outline" id="clearSettingsBtn">Ayarları Sıfırla</button>
+        <button class="btn danger outline" id="clearSettingsBtn">Sıfırla</button>
       </div>
       <div class="modal-hint">
-        <strong>Kurucu:</strong> Kaan Özkurt · <strong>Asistan:</strong> ALPAI (KaAi)<br>
-        <small>API anahtarınız yalnızca bu cihazda saklanır, dışarı gönderilmez.</small>
+        <strong>Kurucu:</strong> Kaan Özkurt · <strong>Asistan:</strong> KaAi<br>
+        <small>API anahtarınız şifrelenir, yalnızca bu cihazda saklanır.</small>
       </div>
     </div>
   </div>
@@ -244,44 +342,67 @@
   <div class="modal-overlay" id="fileModal">
     <div class="modal large">
       <div class="modal-header">
-        <h2>📁 DOSYA GEZGİNİ - Tam Erişim</h2>
+        <h2>📁 KaAi DOSYA GEZGİNİ</h2>
         <button class="modal-close" id="closeFileModal">✕</button>
       </div>
       <div class="file-toolbar">
-        <button class="btn small" id="fileUp">⬆ Üst Klasör</button>
-        <span class="file-path" id="filePath">C:\</span>
+        <button class="btn small" id="fileUp">⬆ Üst</button>
+        <span class="file-path" id="filePath">/</span>
         <button class="btn small" id="fileRefresh">↻ Yenile</button>
-        <button class="btn small primary" id="fileSelectBtn">📂 Klasör Seç</button>
+        <button class="btn small primary" id="fileSelectBtn">📂 Seç</button>
       </div>
       <div class="file-list" id="fileList"></div>
       <div class="file-actions">
-        <input type="text" id="fileActionInput" placeholder="Yeni dosya adı veya komut yaz...">
+        <input type="text" id="fileActionInput" placeholder="Dosya yolu veya komut...">
         <button class="btn small" id="btnFileOpen">Aç</button>
         <button class="btn small" id="btnFileDelete">Sil</button>
-        <button class="btn small" id="btnFileNew">Yeni Dosya</button>
+        <button class="btn small" id="btnFileNew">Yeni</button>
       </div>
     </div>
   </div>
 
-  <!-- MODELS MODAL -->
+  <!-- MODELS MODAL - Yeni modeller -->
   <div class="modal-overlay" id="modelsModal">
     <div class="modal">
       <div class="modal-header">
-        <h2>🤖 AI MODELLERİ</h2>
+        <h2>◈ KaAi AI MODELLERİ</h2>
         <button class="modal-close" id="closeModels">✕</button>
       </div>
-      <div class="modal-body">
-        <div class="model-card active">
-          <h3>ALPAI — KaAi (Aktif)</h3>
-          <p>Google Gemini 2.0 Flash tabanlı. Sesli, hızlı, Türkçe odaklı.</p>
+      <div class="modal-body models-grid">
+        <div class="model-card active" data-model="gemini-2.0-flash">
+          <div class="model-badge">ÖNERİLEN</div>
+          <h3>KaAi — Gemini 2.0 Flash</h3>
+          <p>Hızlı, Türkçe odaklı, günlük asistan. 1M token bağlam.</p>
+          <div class="model-meta"><span>⚡ Hızlı</span><span>🧠 Zeki</span></div>
           <span class="badge">KURUCU: Kaan Özkurt</span>
         </div>
-        <div class="model-card">
-          <h3>Gemini 1.5 Pro</h3>
-          <p>Uzun bağlam, derin analiz için.</p>
-          <button class="btn small" onclick="document.getElementById('modelSelect').value='gemini-1.5-pro'; document.getElementById('modelsModal').classList.remove('open');">Seç</button>
+        <div class="model-card" data-model="gemini-2.5-pro-preview-03-25">
+          <div class="model-badge pro">EN ZEKİ</div>
+          <h3>Gemini 2.5 Pro Preview</h3>
+          <p>En gelişmiş muhakeme, kodlama, matematik. Uzun bağlamda usta.</p>
+          <div class="model-meta"><span>🧠 En Zeki</span><span>📚 Derin Analiz</span></div>
+          <button class="btn small primary model-select-btn">Seç</button>
         </div>
-        <p class="hint">Model değişimi AYARLAR'dan yapılır.</p>
+        <div class="model-card" data-model="gemini-2.5-flash-preview-04-17">
+          <div class="model-badge new">YENİ</div>
+          <h3>Gemini 2.5 Flash</h3>
+          <p>2.5 Pro zekasına yakın, Flash hızında. En yeni nesil.</p>
+          <div class="model-meta"><span>🚀 Yeni</span><span>⚡ Dengeli</span></div>
+          <button class="btn small model-select-btn">Seç</button>
+        </div>
+        <div class="model-card" data-model="gemini-1.5-pro">
+          <h3>Gemini 1.5 Pro</h3>
+          <p>2M token bağlam, doküman analizi, video anlama.</p>
+          <div class="model-meta"><span>📖 Uzun Bağlam</span></div>
+          <button class="btn small model-select-btn">Seç</button>
+        </div>
+        <div class="model-card" data-model="gemini-1.5-flash-8b">
+          <h3>Gemini 1.5 Flash 8B</h3>
+          <p>En hızlı, düşük gecikme, toplu işlemler için ideal.</p>
+          <div class="model-meta"><span>💨 En Hızlı</span></div>
+          <button class="btn small model-select-btn">Seç</button>
+        </div>
+        <p class="hint">Seçiminiz AYARLAR'a kaydedilir ve tüm konuşmalarda kullanılır.</p>
       </div>
     </div>
   </div>

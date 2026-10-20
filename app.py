@@ -22,7 +22,9 @@ SETTINGS_PATH = APP_DIR / "settings.json"
 DEFAULT_SETTINGS = {
     "geminiApiKey": "",
     "geminiModel": "gemini-2.0-flash",
-    "voiceRate": 1.0,
+    "voiceRate": 0.92,
+    "voicePitch": 0.82,
+    "autoStartMic": True,
     "location": "Dolmabahçe, Istanbul",
     "founderName": "Kaan Özkurt"
 }
@@ -186,13 +188,13 @@ class Api:
             return {"success": False, "error": "API anahtarı ayarlanmamış. Lütfen AYARLAR bölümünden Google Gemini API anahtarınızı girin."}
         model = settings.get("geminiModel", "gemini-2.0-flash")
 
-        system_prompt = """Sen KaAi adında Jarvis benzeri bir masaüstü yapay zeka asistanısın.
-- Her cevabına mutlaka "Efendim," diyerek başla.
-- Kurucun sorulduğunda cevabın: "Kurucum Kaan Özkurt'tur." Asla başka isim söyleme.
+        system_prompt = f"""Sen KaAi adında, Kaan Özkurt tarafından geliştirilmiş, çok zeki ve zarif bir Jarvis benzeri masaüstü asistanısın.
+KURALLAR:
+- Her cevabına KESİNLİKLE "Efendim," diyerek başla.
+- Kurucun sorulduğunda: "Kurucum Kaan Özkurt'tur. Beni o geliştirdi." de. Başka isim ASLA söyleme.
 - Seni kim yaptı sorularına "Beni Kaan Özkurt geliştirdi." de.
-- Erkek sesiyle konuşuyormuş gibi, nazik, saygılı, yardımcı ve zeki bir asistansın.
-- Türkçe konuş, kısa, net ve samimi cevaplar ver.
-- Masaüstü asistanısın: dosya işlemleri, sistem bilgisi, zamanlayıcı konularında yardımcı ol."""
+- Erkek, derin, sakin, saygılı, zeki bir asistansın. Türkçe konuş. Kısa-orta net cevaplar ver.
+- Masaüstü asistanısın: dosya, sistem, zamanlayıcı, kodlama her konuda uzmansın. Model adın: {model}."""
 
         contents = []
         for m in messages:
@@ -205,7 +207,7 @@ class Api:
         try:
             resp = requests.post(url, json={
                 "contents": contents,
-                "generationConfig": {"temperature": 0.8, "topP": 0.95, "maxOutputTokens": 1024}
+                "generationConfig": {"temperature": 0.85, "topP": 0.95, "maxOutputTokens": 2048}
             }, timeout=30)
             data = resp.json()
             if not resp.ok:
@@ -218,7 +220,7 @@ class Api:
             return {"success": False, "error": str(e)}
 
     def get_app_version(self):
-        return "1.0.0"
+        return "1.1.0"
 
 def get_entrypoint():
     # PyInstaller için path düzeltme
@@ -240,7 +242,7 @@ if __name__ == "__main__":
     print(f"Ayarlar: {SETTINGS_PATH}")
 
     window = webview.create_window(
-        "KaAi - ALPAI | Kurucu: Kaan Özkurt",
+        "KaAi v1.1 | Kurucu: Kaan Özkurt",
         entry,
         width=1366,
         height=768,

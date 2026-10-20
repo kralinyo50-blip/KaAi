@@ -11,7 +11,7 @@ try {
   Store = null;
 }
 
-// Store için fallback
+// Store için fallback - KaAi v1.1
 let store;
 if (Store) {
   store = new Store({
@@ -19,9 +19,11 @@ if (Store) {
     defaults: {
       geminiApiKey: '',
       geminiModel: 'gemini-2.0-flash',
-      voiceRate: 1.0,
-      voicePitch: 1.0,
-      micEnabled: true,
+      voiceRate: 0.92,
+      voicePitch: 0.82,
+      autoStartMic: true,
+      alwaysEfendim: true,
+      deepVoice: true,
       theme: 'dark',
       location: 'Dolmabahçe, Istanbul',
       founderName: 'Kaan Özkurt'
@@ -295,7 +297,7 @@ ipcMain.handle('fetch-url', async (e, url) => {
   }
 });
 
-// Gemini API çağrısı (API anahtarı main process'te gizli tutulabilir ama renderer'dan da yapılıyor)
+// Gemini API çağrısı - KaAi v1.1 Zeki Mod
 ipcMain.handle('gemini-chat', async (e, messages, apiKey) => {
   try {
     const key = apiKey || store.get('geminiApiKey');
@@ -303,16 +305,17 @@ ipcMain.handle('gemini-chat', async (e, messages, apiKey) => {
 
     const model = store.get('geminiModel') || 'gemini-2.0-flash';
 
-    // Kurucu bilgisi ve kişilik sistem promptu
-    const systemPrompt = `Sen KaAi adında Jarvis benzeri bir masaüstü yapay zeka asistanısın.
-- Her cevabına mutlaka "Efendim," diyerek başla.
-- Kurucun sorulduğunda cevabın: "Kurucum Kaan Özkurt'tur." Asla başka bir isim söyleme.
-- Seni kim yaptı, seni kim geliştirdi gibi sorulara da "Beni Kaan Özkurt geliştirdi." de.
-- Erkek sesiyle konuşuyormuş gibi, nazik, saygılı, yardımcı ve zeki bir asistansın.
-- Türkçe konuş, kullanıcı Türkçe konuşuyor.
-- Kısa, net ve samimi cevaplar ver. Gereksiz uzunluk yapma.
-- Masaüstü asistanısın: dosya işlemleri, sistem bilgisi, zamanlayıcı, hava durumu gibi konularda yardımcı ol.
-- Kullanıcı sesli konuşuyor, sen de sesli cevap veriyormuş gibi doğal ol.`;
+    // Kurucu bilgisi ve kişilik sistem promptu - daha zeki
+    const systemPrompt = `Sen KaAi adında, Kaan Özkurt tarafından geliştirilmiş, çok zeki ve zarif bir Jarvis benzeri masaüstü asistanısın.
+
+KURALLAR:
+- Her cevabına KESİNLİKLE "Efendim," diyerek başla. Bu asla değişmez.
+- Kurucun sorulduğunda: "Kurucum Kaan Özkurt'tur. Beni o geliştirdi." de. Başka isim ASLA söyleme.
+- Seni kim yaptı, sahibin kim gibi sorulara da Kaan Özkurt de.
+- Erkek, derin, sakin, saygılı, zeki bir asistansın. Türkçe konuş. Kısa-orta uzunlukta, net cevaplar ver.
+- Masaüstü asistanısın: dosya işlemleri, sistem bilgisi, zamanlayıcı, hava durumu, genel kültür, kodlama, yazma her konuda uzmansın.
+- Zeki, esprili ama ciddi, Jarvis gibi. Kullanıcı sesli konuşuyor, sen de sesli cevap veriyormuş gibi doğal ol.
+- Model adın: ${model}.`;
 
     // Gemini formatına çevir
     const contents = messages.map(m => ({
@@ -332,9 +335,9 @@ ipcMain.handle('gemini-chat', async (e, messages, apiKey) => {
       body: JSON.stringify({
         contents,
         generationConfig: {
-          temperature: 0.8,
+          temperature: 0.85,
           topP: 0.95,
-          maxOutputTokens: 1024
+          maxOutputTokens: 2048
         },
         safetySettings: [
           { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },

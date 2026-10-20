@@ -1,7 +1,7 @@
 {
   "name": "kaai-jarvis",
-  "version": "1.0.0",
-  "description": "KaAi - Jarvis benzeri masaüstü yapay zeka asistanı | Google Gemini destekli",
+  "version": "1.1.0",
+  "description": "KaAi - Kaan Özkurt imzalı, otomatik dinlemeli, derin sesli Jarvis asistan | Gemini 2.5",
   "main": "main.js",
   "author": "Kaan Özkurt",
   "license": "MIT",

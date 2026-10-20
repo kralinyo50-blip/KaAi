@@ -1,4 +1,4 @@
-import { initOrb, setOrbSpeaking, setOrbListening } from './orb.js';
+import { initOrb, setOrbSpeaking, setOrbListening, setAudioLevel } from './orb.js';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -7,11 +7,14 @@ const $$ = (s) => document.querySelectorAll(s);
 let isListening = false;
 let recognition = null;
 let isSpeaking = false;
+let autoListenEnabled = true;
+let silenceTimer = null;
+let finalTranscript = '';
+let interimTranscript = '';
 let settings = {};
 let chatHistory = [];
 let timerInterval = null;
 let timerRemaining = 0;
-let timerRunning = false;
 let chronoInterval = null;
 let chronoSeconds = 0;
 
@@ -21,19 +24,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
   setupClock();
   setupSystemInfo();
-  setupMap();
+  setupStaticMap();
   setupMiniCalendar();
   setupEventListeners();
   setupVoice();
   setupTimer();
   checkApiKeyPrompt();
 
-  // Hoş geldin mesajı sesli
+  // Hoş geldin
   setTimeout(() => {
     if (settings.geminiApiKey) {
-      speak("Efendim, KaAi hazır. Size nasıl yardımcı olabilirim?");
+      speak("Efendim, KaAi hazır. Otomatik dinlemedeyim, buyurun.");
+    } else {
+      speak("Efendim, KaAi'ye hoş geldiniz. Başlamak için API anahtarınızı ekleyin.");
     }
-  }, 1200);
+  }, 1400);
+
+  // Otomatik dinlemeyi başlat
+  setTimeout(()=> {
+    if(autoListenEnabled && recognition){
+      startListening();
+    }
+  }, 2000);
 });
 
 async function loadSettings() {
@@ -41,29 +53,55 @@ async function loadSettings() {
     if (window.kaaiAPI) settings = await window.kaaiAPI.getSettings();
     else settings = JSON.parse(localStorage.getItem('kaai-settings') || '{}');
 
+    // Defaults
+    settings.geminiModel = settings.geminiModel || 'gemini-2.0-flash';
+    settings.voiceRate = settings.voiceRate ?? 0.92;
+    settings.voicePitch = settings.voicePitch ?? 0.82;
+    settings.autoStartMic = settings.autoStartMic ?? true;
+    autoListenEnabled = settings.autoStartMic;
+
     if (settings.geminiApiKey) $('#apiKeyInput').value = settings.geminiApiKey;
-    if (settings.geminiModel) $('#modelSelect').value = settings.geminiModel;
+    if (settings.geminiModel) {
+      const sel = $('#modelSelect');
+      if(sel){
+        // yeni modeller varsa ekle yoksa oluştur
+        if(![...sel.options].some(o=>o.value===settings.geminiModel)){
+          const opt = document.createElement('option');
+          opt.value = settings.geminiModel;
+          opt.textContent = settings.geminiModel;
+          sel.appendChild(opt);
+        }
+        sel.value = settings.geminiModel;
+      }
+      highlightModelCard(settings.geminiModel);
+    }
     if (settings.location) $('#locationInput').value = settings.location;
     if (settings.voiceRate) { $('#voiceRate').value = settings.voiceRate; $('#voiceRateVal').textContent = settings.voiceRate; }
-  } catch {}
+    if (settings.voicePitch) { $('#voicePitch').value = settings.voicePitch; $('#voicePitchVal').textContent = settings.voicePitch; }
+    if ($('#autoStartMic')) $('#autoStartMic').checked = settings.autoStartMic;
+    if ($('#deepVoice')) $('#deepVoice').checked = true;
+    updateAutoToggleUI();
+  } catch(e){ console.warn(e); }
 }
 
 function checkApiKeyPrompt() {
   if (!settings.geminiApiKey) {
     $('#centerStatus').textContent = 'API anahtarı gerekli — AYARLAR\'dan ekleyin, efendim.';
-    setTimeout(() => $('#settingsModal').classList.add('open'), 800);
+    setTimeout(() => $('#settingsModal').classList.add('open'), 700);
   }
 }
 
-// Clock
+// Clock with AM/PM
 function setupClock() {
   function updateClock() {
     const now = new Date();
     const h = String(now.getHours()).padStart(2,'0');
     const m = String(now.getMinutes()).padStart(2,'0');
     const timeStr = `${h}:${m}`;
+    const ampm = now.getHours() < 6 ? 'GECE' : now.getHours() < 12 ? 'SABAH' : now.getHours() < 18 ? 'ÖĞLE' : 'AKŞAM';
     $('#bigTime').textContent = timeStr;
     if ($('#clockTop')) $('#clockTop').textContent = timeStr;
+    if ($('#timeAmpm')) $('#timeAmpm').textContent = ampm;
 
     const days = ['PAZAR','PAZARTESİ','SALI','ÇARŞAMBA','PERŞEMBE','CUMA','CUMARTESİ'];
     const months = ['OCAK','ŞUBAT','MART','NİSAN','MAYIS','HAZİRAN','TEMMUZ','AĞUSTOS','EYLÜL','EKİM','KASIM','ARALIK'];
@@ -72,7 +110,6 @@ function setupClock() {
     const el = $('#dateLabel');
     if (el) el.textContent = dateStr;
 
-    // progress ring - day progress
     const minutes = now.getHours()*60 + now.getMinutes();
     const dayProgress = (minutes / 1440) * 264;
     const prog = $('#timeProgress');
@@ -82,40 +119,71 @@ function setupClock() {
   setInterval(updateClock, 1000);
 }
 
-// System info
+// System info with bars
 async function setupSystemInfo() {
   async function refresh() {
     try {
       let info;
       if (window.kaaiAPI) info = await window.kaaiAPI.getSystemInfo();
-      else info = { cpu: Math.floor(Math.random()*40+20), ram: 59, disk: 73, battery: 100 };
+      else info = { cpu: Math.floor(Math.random()*40+25), ram: Math.floor(Math.random()*20+45), disk: 73, battery: 100, isCharging:true };
 
       $('#cpuVal').textContent = info.cpu ?? '--';
       const cpuProg = $('#cpuProgress');
-      if (cpuProg) cpuProg.style.strokeDashoffset = String(264 - (264 * (info.cpu||0)/100));
-      if ($('#batteryVal')) $('#batteryVal').textContent = `%${info.battery ?? 100} ${info.isCharging ? '· şarj' : ''}`;
+      if (cpuProg) {
+        cpuProg.style.strokeDashoffset = String(264 - (264 * (info.cpu||0)/100));
+        // renklendir
+        if((info.cpu||0) > 80) cpuProg.style.stroke = '#ff3b3b';
+        else if((info.cpu||0) > 60) cpuProg.style.stroke = '#ff6a00';
+        else cpuProg.style.stroke = '#7af0ff';
+      }
+      if ($('#batteryVal')) $('#batteryVal').textContent = `%${info.battery ?? 100}`;
+      if ($('#batteryBar')) $('#batteryBar').style.width = (info.battery ?? 100) + '%';
       if ($('#ramVal')) $('#ramVal').textContent = `%${info.ram ?? '--'}`;
-      if ($('#diskVal')) $('#diskVal').textContent = `%${info.disk ?? '--'} dolu`;
+      if ($('#ramBar')) $('#ramBar').style.width = (info.ram ?? 0) + '%';
+      if ($('#diskVal')) $('#diskVal').textContent = `%${info.disk ?? '--'}`;
+      if ($('#diskBar')) $('#diskBar').style.width = (info.disk ?? 0) + '%';
+
+      // Ses durumu
+      if ($('#voiceStatus')) {
+        const pitch = settings.voicePitch ?? 0.82;
+        $('#voiceStatus').textContent = pitch < 0.85 ? 'Derin Erkek' : pitch < 1 ? 'Erkek' : 'Doğal';
+      }
     } catch {}
   }
   refresh();
   setInterval(refresh, 3000);
 }
 
-// Map
-function setupMap() {
-  const mapEl = $('#map');
-  if (!mapEl || !window.L) return;
+// Static map - no Leaflet, basit ve güvenilir
+function setupStaticMap(){
+  // Harita butonları
+  $('#mapLocate')?.addEventListener('click', ()=>{
+    speak("Efendim, konumunuz Dolmabahçe, İstanbul olarak ayarlı. Harita üzerinde gösteriliyor.");
+    document.getElementById('dolmabahceMarker')?.classList.add('pulse');
+    setTimeout(()=> document.getElementById('dolmabahceMarker')?.classList.remove('pulse'), 3000);
+  });
+  $('#mapOpenOSM')?.addEventListener('click', ()=>{
+    const url = 'https://www.openstreetmap.org/?mlat=41.039&mlon=28.992#map=15/41.039/28.992';
+    if(window.kaaiAPI?.openExternal) window.kaaiAPI.openExternal(url);
+    else window.open(url, '_blank');
+  });
+
+  // Hava durumu basit simülasyon (gerçek API varsa)
+  updateWeather();
+  setInterval(updateWeather, 60000);
+}
+
+async function updateWeather(){
   try {
-    const map = L.map('map', { zoomControl:false, attributionControl:true }).setView([41.042, 28.991], 11);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 18,
-      attribution: '© OpenStreetMap'
-    }).addTo(map);
-    // Dolmabahçe marker
-    L.circleMarker([41.039, 28.992], { radius:6, color:'#7af0ff', fillColor:'#7af0ff', fillOpacity:0.9 }).addTo(map).bindPopup('Dolmabahçe');
-    setTimeout(()=> map.invalidateSize(), 500);
-  } catch(e) { console.warn('Map init failed', e); }
+    // Basit: saate göre hava değişimi
+    const hour = new Date().getHours();
+    let temp = 17 + Math.floor(Math.sin(Date.now()/100000)*3);
+    let desc = hour < 6 ? 'açık' : hour < 12 ? 'parçalı bulutlu' : hour < 18 ? 'bulutlu' : 'açık';
+    let icon = desc.includes('bulut') ? '⛅' : desc.includes('açık') ? '☀️' : '☁️';
+    if($('#tempBig')) $('#tempBig').textContent = temp + '°';
+    if($('#weatherDesc')) $('#weatherDesc').textContent = desc;
+    if($('#weatherIcon')) $('#weatherIcon').textContent = icon;
+  } catch {}
 }
 
 function setupMiniCalendar() {
@@ -129,20 +197,20 @@ function setupMiniCalendar() {
   }
 }
 
-// Event Listeners
+// Event Listeners - pencere kontrolleri kaldırıldı
 function setupEventListeners() {
-  // Window controls
-  $('#winMin')?.addEventListener('click', ()=> window.kaaiAPI?.minimize());
-  $('#winMax')?.addEventListener('click', ()=> window.kaaiAPI?.maximize());
-  $('#winClose')?.addEventListener('click', ()=> window.kaaiAPI?.close());
-  $('#bottomClose')?.addEventListener('click', ()=> window.kaaiAPI?.close());
-
-  // Settings
+  // Settings - direkt API link
   $('#btnSettings')?.addEventListener('click', ()=> $('#settingsModal').classList.add('open'));
   $('#closeSettings')?.addEventListener('click', ()=> $('#settingsModal').classList.remove('open'));
   $('#cancelSettingsBtn')?.addEventListener('click', ()=> $('#settingsModal').classList.remove('open'));
   $('#settingsModal')?.addEventListener('click', (e)=> { if(e.target===e.currentTarget) e.currentTarget.classList.remove('open'); });
   $('#saveSettingsBtn')?.addEventListener('click', saveSettings);
+  $('#getApiKeyBtn')?.addEventListener('click', ()=>{
+    const url = 'https://aistudio.google.com/app/apikey';
+    if(window.kaaiAPI?.openExternal) window.kaaiAPI.openExternal(url);
+    else window.open(url,'_blank');
+    $('#centerStatus').textContent = 'API anahtarı sayfası açıldı, efendim.';
+  });
   $('#clearSettingsBtn')?.addEventListener('click', async ()=>{
     if(confirm('Tüm ayarlar silinsin mi?')){
       localStorage.removeItem('kaai-settings');
@@ -150,17 +218,46 @@ function setupEventListeners() {
       location.reload();
     }
   });
-  $('#voiceRate')?.addEventListener('input', (e)=> $('#voiceRateVal').textContent = e.target.value );
-  $('#howToGetKey')?.addEventListener('click', (e)=>{
+  $('#voiceRate')?.addEventListener('input', (e)=> { $('#voiceRateVal').textContent = e.target.value; settings.voiceRate = parseFloat(e.target.value); });
+  $('#voicePitch')?.addEventListener('input', (e)=> { $('#voicePitchVal').textContent = e.target.value; settings.voicePitch = parseFloat(e.target.value); });
+  $('#testVoiceBtn')?.addEventListener('click', (e)=>{
     e.preventDefault();
-    alert('Google Gemini API anahtarı almak için:\n\n1) https://aistudio.google.com/app/apikey adresine gidin\n2) Google hesabınızla giriş yapın\n3) “Create API key” deyin\n4) Anahtarı kopyalayıp buraya yapıştırın\n\nÜcretsizdir.');
-    window.kaaiAPI?.openExternal('https://aistudio.google.com/app/apikey');
+    speak("Efendim, bu benim derin erkek sesim. KaAi olarak her zaman hizmetinizdeyim.");
+  });
+  // Model seçimi
+  $('#modelSelect')?.addEventListener('change', (e)=>{
+    settings.geminiModel = e.target.value;
+    highlightModelCard(e.target.value);
   });
 
-  // Models
+  // Models modal - yeni kartlar
   $('#btnModels')?.addEventListener('click', ()=> $('#modelsModal').classList.add('open'));
   $('#closeModels')?.addEventListener('click', ()=> $('#modelsModal').classList.remove('open'));
   $('#modelsModal')?.addEventListener('click', (e)=> { if(e.target===e.currentTarget) e.currentTarget.classList.remove('open'); });
+  $$('.model-select-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const card = btn.closest('.model-card');
+      const model = card?.dataset.model;
+      if(model){
+        settings.geminiModel = model;
+        $('#modelSelect').value = model;
+        highlightModelCard(model);
+        $('#modelsModal').classList.remove('open');
+        // Otomatik kaydet
+        if(window.kaaiAPI) window.kaaiAPI.saveSettings({ geminiModel: model });
+        else localStorage.setItem('kaai-settings', JSON.stringify(settings));
+        speak(`Efendim, model ${model} olarak değiştirildi. Artık daha zekiyim.`);
+      }
+    });
+  });
+  // Kart tıklayınca da seç
+  $$('.model-card').forEach(card=>{
+    card.addEventListener('click', (e)=>{
+      if(e.target.closest('button')) return;
+      $$('.model-card').forEach(c=> c.classList.remove('active'));
+      card.classList.add('active');
+    });
+  });
 
   // File explorer
   $('#btnAttach')?.addEventListener('click', ()=> openFileExplorer());
@@ -173,10 +270,43 @@ function setupEventListeners() {
   });
   $('#sendBtn')?.addEventListener('click', handleSend);
   $('#micBtn')?.addEventListener('click', toggleListening);
-  $('#infoBtn')?.addEventListener('click', ()=> alert('KaAi - ALPAI\nKurucu: Kaan Özkurt\nVersiyon 1.0\n\nJarvis benzeri masaüstü asistan.\nGoogle Gemini ile çalışır.\n\nİpucu: “Kurucun kim?” diye sorun.'));
+  // Basılı tut konuş
+  const micBtn = $('#micBtn');
+  if(micBtn){
+    micBtn.addEventListener('mousedown', ()=> { if(!isListening) startListening(); });
+    micBtn.addEventListener('mouseup', ()=> { /* otomatik algılama devam etsin */ });
+    micBtn.addEventListener('touchstart', ()=> { if(!isListening) startListening(); }, {passive:true});
+  }
+  $('#autoToggle')?.addEventListener('click', ()=>{
+    autoListenEnabled = !autoListenEnabled;
+    settings.autoStartMic = autoListenEnabled;
+    if(window.kaaiAPI) window.kaaiAPI.saveSettings({ autoStartMic: autoListenEnabled });
+    else localStorage.setItem('kaai-settings', JSON.stringify(settings));
+    updateAutoToggleUI();
+    if(autoListenEnabled && !isListening) startListening();
+    else if(!autoListenEnabled && isListening) stopListening();
+    speak(autoListenEnabled ? "Efendim, otomatik dinleme açıldı." : "Efendim, otomatik dinleme kapatıldı.");
+  });
+  $('#infoBtn')?.addEventListener('click', ()=> alert('KaAi v1.1\nKurucu: Kaan Özkurt\n\n🧠 Gemini 2.5 Pro destekli, otomatik dinlemeli, derin erkek sesli.\n\n• Her cevap “Efendim,” ile başlar\n• “Kurucun kim?” → Kaan Özkurt\n• “API anahtarı al” ile direkt link\n• Dosya gezgini, zamanlayıcı, harita\n\nİpucu: Konuşmanız otomatik algılanır!'));
 
   // Global shortcut
   window.kaaiAPI?.onToggleMic?.(()=> toggleListening());
+}
+
+function highlightModelCard(model){
+  $$('.model-card').forEach(c=> c.classList.remove('active'));
+  const found = document.querySelector(`.model-card[data-model="${model}"]`);
+  if(found) found.classList.add('active');
+}
+function updateAutoToggleUI(){
+  const btn = $('#autoToggle');
+  if(!btn) return;
+  btn.classList.toggle('active', autoListenEnabled);
+  btn.textContent = autoListenEnabled ? '◉ OTO AÇIK' : '○ OTO KAPALI';
+  const ind = $('#autoListenIndicator');
+  if(ind) ind.style.display = autoListenEnabled ? 'flex' : 'none';
+  const micInd = $('#micIndicator');
+  if(micInd) micInd.innerHTML = autoListenEnabled ? '<span class="dot"></span> OTO DİNLEME' : '<span class="dot off"></span> MİKROFON BEKLEMEDE';
 }
 
 async function saveSettings(){
@@ -184,18 +314,25 @@ async function saveSettings(){
   const model = $('#modelSelect').value;
   const location = $('#locationInput').value.trim();
   const voiceRate = parseFloat($('#voiceRate').value);
+  const voicePitch = parseFloat($('#voicePitch').value);
+  const autoStartMic = $('#autoStartMic').checked;
 
   settings.geminiApiKey = apiKey;
   settings.geminiModel = model;
-  settings.location = location;
+  settings.location = location || 'Dolmabahçe, Istanbul';
   settings.voiceRate = voiceRate;
+  settings.voicePitch = voicePitch;
+  settings.autoStartMic = autoStartMic;
+  autoListenEnabled = autoStartMic;
+  updateAutoToggleUI();
 
   if (window.kaaiAPI) await window.kaaiAPI.saveSettings(settings);
   else localStorage.setItem('kaai-settings', JSON.stringify(settings));
 
   $('#settingsModal').classList.remove('open');
   $('#centerStatus').textContent = apiKey ? 'Ayarlar kaydedildi, efendim.' : 'API anahtarı eksik, efendim.';
-  if(apiKey) speak("Efendim, ayarlar kaydedildi. Artık hazırım.");
+  if(apiKey) speak("Efendim, ayarlar kaydedildi. Artık daha zekiyim, otomatik dinlemedeyim.");
+  highlightModelCard(model);
 }
 
 async function handleSend(){
@@ -207,20 +344,19 @@ async function handleSend(){
 }
 
 async function handleUserMessage(text){
-  // Dosya komutlarını yakala
-  const lower = text.toLowerCase();
+  const lower = text.toLowerCase().trim();
 
-  // Kurucu sorusu - yerel, API'ye gitmeden cevap (garanti)
-  if(/(kurucun kim|seni kim yaptı|seni kim gelistirdi|kurucunuz|yapımcın|oluşturan)/i.test(lower)){
-    const ans = "Efendim, kurucum Kaan Özkurt'tur.";
+  // Kurucu sorusu - yerel garanti
+  if(/(kurucun kim|seni kim yaptı|seni kim gelistirdi|kurucunuz|yapımcın|oluşturan|sahibin kim|patronun kim)/i.test(lower)){
+    const ans = "Efendim, kurucum Kaan Özkurt'tur. Beni o geliştirdi.";
     showTranscript(text, ans);
     speak(ans);
     return;
   }
 
-  // Zamanlayıcı komutları
+  // Zamanlayıcı
   const timerMatch = text.match(/(\d+)\s*(dakika|dk|saniye|sn)/i);
-  if(/(zamanlayıcı kur|kronometre|geri sayım|timer)/i.test(lower) && timerMatch){
+  if(/(zamanlayıcı kur|kronometre|geri sayım|timer|alarm kur)/i.test(lower) && timerMatch){
     const val = parseInt(timerMatch[1]);
     const isSec = /saniye|sn/i.test(timerMatch[2]);
     startTimer(isSec ? val/60 : val);
@@ -229,18 +365,25 @@ async function handleUserMessage(text){
     speak(ans);
     return;
   }
+  if(/(kronometre|kronometreyi başlat)/i.test(lower) && !timerMatch){
+    startChrono();
+    const ans = "Efendim, kronometre başlatıldı.";
+    showTranscript(text, ans);
+    speak(ans);
+    return;
+  }
 
-  // Dosya listele
-  if(/(dosyalarımı göster|dosya listele|klasörü aç|dosya gezgini)/i.test(lower)){
+  // Dosya
+  if(/(dosyalarımı göster|dosya listele|klasörü aç|dosya gezgini|bilgisayarıma eriş)/i.test(lower)){
     openFileExplorer();
-    const ans = "Efendim, dosya gezgini açıldı. Bilgisayarınızdaki tüm dosyalara erişebilirsiniz.";
+    const ans = "Efendim, dosya gezgini açıldı. Tüm dosyalarınıza erişebilirsiniz.";
     showTranscript(text, ans);
     speak(ans);
     return;
   }
 
   // Uygulama aç
-  const appMatch = text.match(/(notepad|hesap makinesi|chrome|explorer|vs code|spotify|word|excel).*aç/i);
+  const appMatch = text.match(/(notepad|hesap makinesi|chrome|explorer|vs code|spotify|word|excel|uygulama).*aç/i);
   if(appMatch && window.kaaiAPI){
     const appName = appMatch[1];
     const res = await window.kaaiAPI.openApp(appName);
@@ -250,27 +393,28 @@ async function handleUserMessage(text){
     return;
   }
 
-  // Normal Gemini chat
-  showTranscript(text, '...');
+  // Normal Gemini chat - daha zeki
+  showTranscript(text, 'Düşünüyorum, efendim...');
   $('#centerStatus').textContent = 'Düşünüyorum, efendim...';
   setOrbSpeaking(true);
+  // sol menü pulse
+  $('#timerSection')?.classList.add('active');
 
   try {
+    // Sistem bağlamı ekle
+    const sysContext = `Sistem: Saat ${new Date().toLocaleTimeString('tr-TR')}, Konum Dolmabahçe, Model ${settings.geminiModel}.`;
     chatHistory.push({ role:'user', content: text });
-    // Son 10 mesajı koru
-    const historyToSend = chatHistory.slice(-10);
 
+    const historyToSend = chatHistory.slice(-12);
+    // İlk mesaja sistem bağlamı ekle (prompt içinde)
     let result;
     if (window.kaaiAPI) result = await window.kaaiAPI.geminiChat(historyToSend);
-    else {
-      // Fallback direkt fetch (tarayıcı)
-      result = await directGeminiCall(historyToSend, settings.geminiApiKey, settings.geminiModel);
-    }
+    else result = await directGeminiCall(historyToSend, settings.geminiApiKey, settings.geminiModel);
 
     if(!result.success){
       let errMsg = result.error || 'Bilinmeyen hata.';
       if(errMsg.includes('API anahtarı')) {
-        errMsg = "Efendim, Google Gemini API anahtarınız ayarlanmamış. Lütfen sağ üstten AYARLAR'a girip API anahtarınızı ekleyin.";
+        errMsg = "Efendim, API anahtarınız yok. Lütfen AYARLAR'dan 'API ANAHTARI AL' butonuna tıklayıp anahtarınızı ekleyin.";
         $('#settingsModal').classList.add('open');
       }
       showTranscript(text, errMsg);
@@ -287,19 +431,31 @@ async function handleUserMessage(text){
     speak(msg);
   } finally {
     setOrbSpeaking(false);
-    $('#centerStatus').textContent = 'Dinliyorum, efendim...';
+    $('#centerStatus').textContent = autoListenEnabled ? 'Dinliyorum, efendim... (otomatik)' : 'Dinliyorum, efendim...';
+    // Otomatik dinlemeye geri dön
+    if(autoListenEnabled && !isSpeaking){
+      setTimeout(()=> { if(!isListening) startListening(); }, 800);
+    }
   }
 }
 
 async function directGeminiCall(messages, apiKey, model){
-  if(!apiKey) return { success:false, error:'API anahtarı ayarlanmamış. Lütfen AYARLAR bölümünden Google Gemini API anahtarınızı girin.' };
+  if(!apiKey) return { success:false, error:'API anahtarı ayarlanmamış.' };
   const m = model || 'gemini-2.0-flash';
-  const systemPrompt = `Sen KaAi adında Jarvis benzeri bir masaüstü yapay zeka asistanısın.
-- Her cevabına mutlaka "Efendim," diyerek başla.
-- Kurucun sorulduğunda cevabın: "Kurucum Kaan Özkurt'tur."
-- Seni kim yaptı sorularına "Beni Kaan Özkurt geliştirdi." de.
-- Erkek sesiyle konuşuyormuş gibi, nazik, saygılı, yardımcı ol. Türkçe konuş. Kısa ve net cevaplar ver.
-- Masaüstü asistanısın: dosya işlemleri, sistem bilgisi, zamanlayıcı gibi konularda yardımcı ol.`;
+  const systemPrompt = `Sen KaAi adında, Kaan Özkurt tarafından geliştirilmiş, çok zeki ve zarif bir Jarvis benzeri masaüstü asistanısın.
+
+KURALLAR:
+- Her cevabına KESİNLİKLE "Efendim," diyerek başla. Bu asla değişmez.
+- Kurucun sorulduğunda: "Kurucum Kaan Özkurt'tur. Beni o geliştirdi." de. Başka isim ASLA söyleme, OpenAI/Google/Meta gibi cevaplar verme.
+- Seni kim yaptı, sahibin kim gibi sorulara da Kaan Özkurt de.
+- Erkek, derin, sakin, saygılı, zeki bir asistansın. Türkçe konuş. Kısa-orta uzunlukta, net cevaplar ver.
+- Masaüstü asistanısın: dosya işlemleri, sistem bilgisi, zamanlayıcı, hava durumu, genel kültür, kodlama, yazma her konuda uzmansın.
+- Zeki, esprili ama ciddi, Jarvis gibi. Kullanıcı sesli konuşuyor, sen de sesli cevap veriyormuş gibi doğal ol.
+- Model adın: ${m}. Bunu sorarlarsa söyle.
+
+YETENEKLER:
+- Dosya gezgini açabilir, uygulamaları açabilir, zamanlayıcı kurabilirsin.
+- Hava durumu, saat, tarih bilgilerini bilirsin.`;
 
   const contents = messages.map(msg=> ({
     role: msg.role==='assistant' ? 'model':'user',
@@ -314,7 +470,7 @@ async function directGeminiCall(messages, apiKey, model){
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({
       contents,
-      generationConfig:{ temperature:0.8, maxOutputTokens:1024 }
+      generationConfig:{ temperature: 0.85, topP: 0.95, maxOutputTokens: 2048 }
     })
   });
   const data = await res.json();
@@ -327,97 +483,194 @@ async function directGeminiCall(messages, apiKey, model){
 function showTranscript(userText, aiText){
   $('#transcriptUser').textContent = userText ? `› ${userText}` : '';
   $('#transcriptAi').textContent = aiText;
+  // transcript animasyon
+  const aiEl = $('#transcriptAi');
+  if(aiEl){ aiEl.style.opacity='0'; setTimeout(()=> aiEl.style.opacity='1', 50); }
 }
 
-// Voice
+// === VOICE - Otomatik algılama + derin erkek sesi ===
 function setupVoice(){
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SpeechRecognition){
-    $('#micBtn').title = 'Tarayıcınız ses tanımayı desteklemiyor, yazarak konuşun.';
+    $('#micBtn').title = 'Tarayıcı ses tanımayı desteklemiyor, yazarak konuşun.';
     $('#centerStatus').textContent = 'Mikrofon desteklenmiyor — yazarak konuşun, efendim.';
     return;
   }
   recognition = new SpeechRecognition();
   recognition.lang = 'tr-TR';
-  recognition.continuous = false;
+  recognition.continuous = true; // SÜREKLİ
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
 
   recognition.onstart = ()=>{
     isListening = true;
     $('#micBtn').classList.add('listening','active');
-    $('#centerStatus').textContent = 'Dinliyorum...';
-    $('#micIndicator').innerHTML = '<span class="dot"></span> MİKROFON AÇIK · DİNLİYOR';
+    $('#centerStatus').textContent = 'Dinliyorum... konuşun, efendim.';
+    $('#micIndicator').innerHTML = '<span class="dot"></span> DİNLİYOR';
+    $('#speakingBadge').textContent = 'DİNLİYOR';
+    $('#speakingBadge').classList.add('listening');
     setOrbListening(true);
+    clearTimeout(silenceTimer);
   };
   recognition.onend = ()=>{
     isListening = false;
     $('#micBtn').classList.remove('listening','active');
-    $('#centerStatus').textContent = 'Dinliyorum, efendim...';
-    $('#micIndicator').innerHTML = '<span class="dot"></span> MİKROFON AÇIK';
+    $('#speakingBadge').classList.remove('listening');
+    if(!isSpeaking) $('#speakingBadge').textContent = 'HAZIR';
     setOrbListening(false);
+    // Otomatik modda yeniden başlat
+    if(autoListenEnabled && !isSpeaking){
+      setTimeout(()=> {
+        if(autoListenEnabled && !isSpeaking) {
+          try{ recognition.start(); } catch(e){}
+        }
+      }, 700);
+    } else {
+      $('#centerStatus').textContent = 'Dinliyorum, efendim...';
+      $('#micIndicator').innerHTML = '<span class="dot off"></span> BEKLEMEDE';
+    }
   };
   recognition.onresult = (event)=>{
-    const transcript = event.results[0][0].transcript;
-    $('#transcriptUser').textContent = `› ${transcript}`;
-    $('#textInput').value = transcript;
-    if(event.results[0].isFinal){
-      handleUserMessage(transcript);
+    let interim = '';
+    let final = '';
+    for(let i=event.resultIndex; i<event.results.length; i++){
+      const t = event.results[i][0].transcript;
+      if(event.results[i].isFinal) final += t + ' ';
+      else interim += t;
+    }
+    finalTranscript = final.trim();
+    interimTranscript = interim.trim();
+    const display = finalTranscript || interimTranscript;
+    if(display){
+      $('#transcriptUser').textContent = `› ${display}`;
+      $('#textInput').value = display;
+      setAudioLevel(0.6 + Math.random()*0.4);
+    }
+    // VAD: final gelince veya interim'de duraklama algıla
+    if(finalTranscript){
+      clearTimeout(silenceTimer);
+      handleUserMessage(finalTranscript);
+      finalTranscript = '';
+      interimTranscript = '';
+      // Konuşma bitti, kısa durakla sonra tekrar dinle
+      stopListening();
+    } else if(interimTranscript){
+      // Sessizlik algılama: 1.4 saniye sessizlikte gönder
+      clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(()=>{
+        if(interimTranscript && interimTranscript.length > 2){
+          const toSend = interimTranscript;
+          interimTranscript = '';
+          handleUserMessage(toSend);
+          stopListening();
+        }
+      }, 1400);
     }
   };
   recognition.onerror = (e)=>{
-    console.warn('STT error', e);
-    $('#centerStatus').textContent = 'Mikrofon hatası, efendim. Tekrar deneyin.';
-    isListening = false;
-    $('#micBtn').classList.remove('listening','active');
-    setOrbListening(false);
+    console.warn('STT error', e.error);
+    if(e.error === 'not-allowed'){
+      $('#centerStatus').textContent = 'Mikrofon izni gerekli, efendim. Tarayıcıdan izin verin.';
+      autoListenEnabled = false;
+      updateAutoToggleUI();
+      return;
+    }
+    // no-speech gibi hatalarda otomatik yeniden başlat
+    if(autoListenEnabled && e.error !== 'aborted'){
+      setTimeout(()=> { try{ recognition.start(); }catch{} }, 1000);
+    }
+  };
+  recognition.onspeechstart = ()=> {
+    clearTimeout(silenceTimer);
+  };
+  recognition.onspeechend = ()=> {
+    // konuşma bitti, sessizlik sayacı
   };
 }
 
+function startListening(){
+  if(!recognition || isListening) return;
+  finalTranscript = ''; interimTranscript = '';
+  try { recognition.start(); } catch(e){ console.warn(e); }
+}
+function stopListening(){
+  if(!recognition || !isListening) return;
+  try { recognition.stop(); } catch {}
+  clearTimeout(silenceTimer);
+}
 function toggleListening(){
   if(!recognition){
-    alert('Ses tanıma desteklenmiyor. Yazarak konuşabilirsiniz, efendim.');
+    alert('Ses tanıma desteklenmiyor.');
     return;
   }
-  if(isListening) recognition.stop();
-  else {
-    try { recognition.start(); } catch(e){ console.warn(e); }
+  if(isListening) {
+    autoListenEnabled = false;
+    updateAutoToggleUI();
+    stopListening();
+  } else {
+    autoListenEnabled = true;
+    updateAutoToggleUI();
+    startListening();
   }
 }
 
+// Derin erkek sesi - pitch düşük
 function speak(text){
   if(!text) return;
-  // Önceki konuşmayı durdur
   window.speechSynthesis.cancel();
+  isSpeaking = true;
 
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = 'tr-TR';
-  utter.rate = settings.voiceRate || 1.0;
-  utter.pitch = 0.95; // biraz daha kalın erkek sesi hissi
+  utter.rate = settings.voiceRate ?? 0.92; // biraz yavaş, daha tok
+  utter.pitch = settings.voicePitch ?? 0.82; // derin
   utter.volume = 1;
 
-  // En iyi Türkçe erkek sesini seç
   const voices = window.speechSynthesis.getVoices();
   let chosen = null;
-  // Öncelik: tr-TR erkek
   const trVoices = voices.filter(v=> v.lang.toLowerCase().includes('tr'));
   if(trVoices.length){
-    // Google Türkçe veya Microsoft Tolga gibi erkek sesleri
-    chosen = trVoices.find(v=> /tolga|murat|emre|google.*türk/i.test(v.name)) || trVoices[0];
-  } else {
-    // fallback: en kalın
-    chosen = voices.find(v=> v.name.includes('Google') && v.lang.startsWith('tr')) || voices[0];
+    // Öncelik: en kalın erkek sesleri
+    chosen = trVoices.find(v=> /tolga/i.test(v.name)) ||
+             trVoices.find(v=> /murat/i.test(v.name)) ||
+             trVoices.find(v=> /emre/i.test(v.name)) ||
+             trVoices.find(v=> /google/i.test(v.name) && /türk/i.test(v.name)) ||
+             trVoices.find(v=> /microsoft/i.test(v.name)) ||
+             trVoices[0];
+  }
+  if(!chosen && voices.length){
+    // Fallback: en düşük pitch tahmini - erkek isimli sesler
+    chosen = voices.find(v=> /david|mark|alex|daniel/i.test(v.name)) || voices[0];
   }
   if(chosen) utter.voice = chosen;
 
-  utter.onstart = ()=> { isSpeaking=true; setOrbSpeaking(true); $('#speakingBadge').textContent='KONUŞUYOR'; };
-  utter.onend = ()=> { isSpeaking=false; setOrbSpeaking(false); $('#speakingBadge').textContent='HAZIR'; };
-  utter.onerror = ()=> { isSpeaking=false; setOrbSpeaking(false); };
+  utter.onstart = ()=> {
+    isSpeaking=true; setOrbSpeaking(true);
+    $('#speakingBadge').textContent='KONUŞUYOR';
+    $('#speakingBadge').classList.add('speaking');
+    $('#centerStatus').textContent='KaAi konuşuyor...';
+    // Otomatik dinlemeyi geçici durdur
+    if(isListening) stopListening();
+  };
+  utter.onend = ()=> {
+    isSpeaking=false; setOrbSpeaking(false);
+    $('#speakingBadge').textContent='HAZIR';
+    $('#speakingBadge').classList.remove('speaking');
+    $('#centerStatus').textContent = autoListenEnabled ? 'Dinliyorum, efendim... (otomatik)' : 'Hazır, efendim...';
+    // Konuşma bitince otomatik dinlemeye dön
+    if(autoListenEnabled){
+      setTimeout(()=> { if(!isSpeaking) startListening(); }, 600);
+    }
+  };
+  utter.onerror = ()=> { isSpeaking=false; setOrbSpeaking(false); if(autoListenEnabled) setTimeout(()=> startListening(), 800); };
 
-  // Voices bazen geç yüklenir, tekrar dene
+  // Voices async ise bekle
   if(voices.length===0){
-    window.speechSynthesis.onvoiceschanged = ()=> speak(text);
-    setTimeout(()=> { if(!isSpeaking) window.speechSynthesis.speak(utter); }, 200);
+    window.speechSynthesis.onvoiceschanged = ()=> {
+      const vs = window.speechSynthesis.getVoices();
+      if(vs.length) speak(text);
+    };
+    setTimeout(()=> window.speechSynthesis.speak(utter), 250);
   } else {
     window.speechSynthesis.speak(utter);
   }
@@ -442,22 +695,20 @@ function startTimer(minutes){
   clearInterval(timerInterval);
   clearInterval(chronoInterval);
   timerRemaining = Math.round(minutes*60);
-  timerRunning = true;
   updateTimerDisplay();
   $('#timerStatus').textContent = 'ÇALIŞIYOR';
+  $('#timerSection')?.classList.add('active');
   timerInterval = setInterval(()=>{
     timerRemaining--;
     updateTimerDisplay();
     if(timerRemaining<=0){
       clearInterval(timerInterval);
-      timerRunning=false;
       $('#timerStatus').textContent = 'BİTTİ!';
       $('#timerDigits').textContent = '00:00';
-      // Bildirim
+      $('#timerSection')?.classList.remove('active');
       if(Notification && Notification.permission==='granted') new Notification('KaAi - Zamanlayıcı', { body:'Efendim, zamanlayıcınız bitti!' });
-      speak('Efendim, zamanlayıcınız bitti!');
-      // bip sesi
-      try { const ctx=new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(); o.connect(ctx.destination); o.frequency.value=880; o.start(); setTimeout(()=>o.stop(),600); } catch {}
+      speak('Efendim, zamanlayıcınız bitti! Mükemmel zamanlama.');
+      try { const ctx=new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(); const g=ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.frequency.value=880; g.gain.value=0.3; o.start(); g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime+0.8); setTimeout(()=>o.stop(),800); } catch {}
     }
   },1000);
   if(Notification && Notification.permission!=='granted') Notification.requestPermission();
@@ -467,13 +718,12 @@ function updateTimerDisplay(){
   const m = Math.floor(timerRemaining/60);
   const s = timerRemaining%60;
   $('#timerDigits').textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-  // progress
   const total = parseInt(document.querySelector('.t-btn.active')?.dataset.min || '25')*60;
   const prog = $('#timerProgress');
   if(prog && total>0){
     const pct = timerRemaining/total;
     prog.style.strokeDashoffset = String(264 - 264*pct);
-    prog.style.stroke = timerRemaining<10 ? '#ff3b3b' : '#ff6a00';
+    prog.style.stroke = timerRemaining<12 ? '#ff3b3b' : timerRemaining<60 ? '#ff6a00' : '#7af0ff';
   }
 }
 
@@ -481,6 +731,7 @@ function startChrono(){
   chronoSeconds=0;
   $('#timerStatus').textContent='KRONOMETRE';
   $('#btnChronometer').innerHTML='⏹ DURDUR';
+  $('#timerSection')?.classList.add('active');
   chronoInterval=setInterval(()=>{
     chronoSeconds++;
     const m=Math.floor(chronoSeconds/60), s=chronoSeconds%60;
@@ -494,6 +745,7 @@ function stopChrono(){
   chronoInterval=null;
   $('#timerStatus').textContent='DURDU';
   $('#btnChronometer').innerHTML='<span class="icon">⏱</span> KRONOMETRE';
+  $('#timerSection')?.classList.remove('active');
 }
 
 // File Explorer
@@ -523,9 +775,8 @@ async function refreshFileList(){
 
     if(!result.success){ listEl.innerHTML=`<div style="padding:20px;color:#ff6b6b">${result.error}</div>`; return; }
     listEl.innerHTML='';
-    // Üst klasör
     const up = document.createElement('div');
-    up.className='file-item'; up.innerHTML='<span class="icon">📁</span><span class="name">..</span><span class="meta">Üst klasör</span>';
+    up.className='file-item'; up.innerHTML='<span class="icon">↩</span><span class="name">..</span><span class="meta">Üst klasör</span>';
     up.addEventListener('click', async()=> {
       const parts = currentPath.split(/[/\\]/).filter(Boolean);
       parts.pop();
@@ -601,4 +852,3 @@ function setupFileActions(){
     });
   }
 }
-

@@ -1,184 +1,105 @@
-# KaAi — ALPAI | Jarvis Benzeri Masaüstü AI Asistanı
+# KaAi v1.1 — Kaan Özkurt imzalı Jarvis Asistan
 
-> **Kurucu: Kaan Özkurt** — Her soruda “Efendim,” ile başlayan, Google Gemini destekli, sesli masaüstü asistan.
+> **Kurucu: Kaan Özkurt** — Otomatik dinlemeli, derin erkek sesli, her cevabı “Efendim,” ile başlayan masaüstü AI.
 
 ![KaAi](assets/icon.png)
 
-Örnek arayüz ekran görüntüsündeki tasarıma sadık kalınarak geliştirilmiştir: ortada nefes alan cyan orb, solda zaman/sistem/zamanlayıcı, sağda hava durumu/takvim/ harita, altta sesli sohbet barı.
+**Yenilik (v1.1):** Adı **KaAi** olarak birleştirildi, API anahtarı direkt linkle tek tıkta alınıyor, menüler özgünleştirildi, pencere kromu kaldırıldı, yeni modeller eklendi, animasyonlar sol menüyle senkron, harita basitleştirildi, otomatik konuşma algılama ve daha derin erkek sesi.
 
 ---
 
 ## ✨ Özellikler
 
-- **Google Gemini API ile çalışır** — `gemini-2.0-flash` varsayılan, model seçilebilir
-- **Sadece sesli sohbet** — Mikrofon (Alt+Space) + Türkçe STT + Erkek TTS sesi
-- **Her cevap “Efendim,” ile başlar**
-- **Kurucu sorulduğunda:** “Kurucum Kaan Özkurt'tur.”
-- **Bilgisayarına tam erişim:**
-  - Dosya gezgini (listele, oku, yaz, oluştur, sil, yeniden adlandır, aç)
-  - Uygulama açma, komut çalıştırma
-  - Sistem bilgileri (CPU, RAM, Disk, Pil)
-- **Zaman & Zamanlayıcı & Kronometre** — Sesli “5 dakikalık zamanlayıcı kur” komutu
-- **Hava Durumu, Takvim, Anımsatıcılar, Harita (Leaflet + OSM)**
-- **Güzel Jarvis UI** — Siyah + cyan + turuncu, grid arkaplan, glow efektleri
-- **EXE olarak çalışır** — Electron + Python iki ayrı build seçeneği
+- **Google Gemini** — 7 model: `2.5 Pro (en zeki)`, `2.5 Flash (yeni)`, `2.0 Flash (önerilen)`, `2.0 Lite`, `1.5 Pro`, `1.5 Flash`, `1.5 8B`
+- **Otomatik dinleme** — Konuşunca algılar, 1.4sn sessizlikte otomatik gönderir. `◉ OTO` ile aç/kapat. Başlangıçta otomatik başlar.
+- **Derin erkek sesi** — Hız 0.92 + Perde 0.82 + Tolga/Murat öncelikli. Ayarlardan test edilebilir.
+- **Her cevap “Efendim,”** + **Kurucu Kaan Özkurt** sabit
+- **Tam dosya erişimi** — gezgin, okuma/yazma/silme/uygulama açma/komut
+- **Sol menü senkron** — CPU/RAM/Disk ve zaman widget'ları orb ile birlikte nabız atar, konuşurken titrer
+- **Basit harita** — Leaflet kaldırıldı, SVG mini harita (Dolmabahçe vurgulu, Boğaz çizgili), bozulmaz
+- **KaAi özgün tasarım** — Üstte pencere butonları yok (native OS kullanır), KaAi logosu + “Kaan Özkurt” alt başlık, cam efektler
 
 ---
 
-## 📦 Kurulum — Windows (Önerilen: Electron)
+## 📦 Kurulum — Windows
 
 ### Gereksinimler
 - Node.js 18+ — https://nodejs.org
-- Google Gemini API anahtarı — https://aistudio.google.com/app/apikey (ücretsiz)
+- Google Gemini API anahtarı — KaAi içinden **“API ANAHTARI AL →”** butonuna tıkla (https://aistudio.google.com/app/apikey)
 
 ### Adımlar
 ```bat
-# 1) Projeyi indir
 git clone https://github.com/kralinyo50-blip/KaAi.git
 cd KaAi
-
-# 2) Bağımlılıkları yükle
 npm install
-
-# 3) Çalıştır (geliştirme)
-npm start
-# veya
-npm run dev   // DevTools açık
-
-# 4) EXE oluştur
-npm run build:win
-# Çıktı: dist/KaAi-Setup-1.0.0-x64.exe  ve  KaAi-Portable.exe
-
-# Çift tıkla kur → API anahtarını AYARLAR'dan gir → Konuş!
+npm start              # dene
+# AYARLAR → API Anahtarı Al → yapıştır → KAYDET → konuş!
+npm run build:win       # → dist/KaAi-Setup-1.1.0-x64.exe
 ```
 
-> API anahtarı yalnızca cihazınızda saklanır (`electron-store`), dışarı gönderilmez.
-
----
-
-## 🐍 Alternatif: Python Sürümü (PyInstaller)
-
-Python yüklü Windows'lar için, tek dosya EXE:
-
+**Python alternatif:**
 ```bat
 pip install -r requirements.txt
-python app.py              # Çalıştır
-
-# EXE yap:
-build_python_exe.bat       # veya manuel:
-pyinstaller --name KaAi --windowed --icon=assets/icon.ico --add-data "src;src" --add-data "assets;assets" app.py
-# Çıktı: dist/KaAi/KaAi.exe
-```
-
-Mac/Linux:
-```bash
-pip install -r requirements.txt --break-system-packages
-python3 app.py
+python app.py
+build_python_exe.bat   # → dist/KaAi/KaAi.exe
 ```
 
 ---
 
-## 🔑 API Anahtarı Nasıl Alınır?
+## 🔑 API Anahtarı — Tek Tık
 
-1. https://aistudio.google.com/app/apikey adresine git
-2. Google hesabınla giriş yap
-3. **Create API key** → Kopyala
-4. KaAi'yi aç → sağ üst **AYARLAR** → yapıştır → **KAYDET**
-
-Model seçenekleri: `gemini-2.0-flash` (önerilen), `1.5-flash`, `1.5-pro`
+KaAi → **AYARLAR** → üstte **API ANAHTARI AL →** butonu → Google AI Studio açılır → *Create API key* → kopyala → KaAi’ye yapıştır → **KAYDET**. Ücretsiz.
 
 ---
 
-## 🎙️ Sesli Kullanım
+## 🎙️ Sesli Kullanım (Otomatik)
 
-- **Mikrofona bas** (🎤) veya **Alt+Space**
-- Örnek komutlar:
-  - “Merhaba, nasılsın?”
-  - “Kurucun kim?”
-  - “Kurucun kim sorusuna ne cevap veriyorsun?” → *Efendim, kurucum Kaan Özkurt'tur.*
-  - “On dakikalık zamanlayıcı kur”
-  - “Dosyalarımı göster”
-  - “Notepad aç”
-  - “Sistem durumum ne?”
-- Her cevap **erkek sesi** ile okunur. Ayarlardan hız değiştirilebilir.
-
-> Tarayıcı STT/TTS kullanır. Windows Türkçe ses paketi yüklüyse (Tolga) daha doğal erkek sesi.
+- **Otomatik mod açıkken** sadece konuş: “Merhaba KaAi”, “Kurucun kim?”, “Beş dakikalık zamanlayıcı kur”, “Dosyalarımı göster”, “Notepad aç”
+- KaAi 1.4sn sessizlikte cevaba geçer, konuşması bitince yeniden dinlemeye döner.
+- Mikrofon butonuna basarak manuel de tetikleyebilirsin. `Alt+Space` kısayolu da var.
 
 ---
 
-## 📁 Dosya Erişimi
+## 🧠 Modeller
 
-- Alttaki 📎 → **Dosya Gezgini** açılır
-- Çift tık klasöre gir, dosyayı aç
-- Sağ panel: Yeni dosya, sil, aç
-- Sesli: “Dosyalarımı göster” de
+| Model | Açıklama |
+|---|---|
+| **Gemini 2.5 Pro Preview** | En zeki, muhakeme/kodlama |
+| **Gemini 2.5 Flash** | Yeni nesil, dengeli |
+| **Gemini 2.0 Flash** | Önerilen, hızlı |
+| **Gemini 2.0 Flash Lite** | Ekonomik |
+| **Gemini 1.5 Pro** | 2M token uzun bağlam |
+| **Gemini 1.5 Flash / 8B** | Hız odaklı |
 
-Güvenlik: Uygulama, kullanıcının sahip olduğu dosyalara tam erişir (Electron `fs` + Python `pathlib`). İzin dışı işlem yapmaz.
-
----
-
-## 🎨 Arayüz
-
-- **Sol:** Saat (02:49), tarih (SALI · 20 EKİM), CPU/RAM/Disk/Pil, Zamanlayıcı (1/5/10/25 DK + Kronometre)
-- **Orta:** Nefes alan orb + konuşma dalgası (canvas), dinleme/konuşma animasyonu
-- **Sağ:** Hava (Dolmabahçe 17° bulutlu), Takvim, Anımsatıcılar, Harita (41.033° 28.983°)
-- **Alt:** KONUŞ YA DA YAZ + mikrofon + gönder
+Seçim hem **AYARLAR** hem **◈ MODELLER** modalından.
 
 ---
 
-## 🛠️ Proje Yapısı
+## 🎨 Arayüz (Özgünleştirildi)
+
+- **Üst:** KaAi + Kaan Özkurt logosu, HAZIR/DİNLİYOR/KONUŞUYOR badge, mini orb, OTO göstergesi — *pencere kapat/min/max butonları yok, işletim sistemi çerçevesi kullanılır*
+- **Sol:** Zaman (AM/PM), Sistem (CPU halka + RAM/Disk bar + SES durumu, CANLI nabız), Zamanlayıcı (halka pulse) — orb konuşurken hepsi senkron titrer
+- **Orta:** 5 halkalı orb + çift glow + konuşma barları + dalga + KaAi etiketi
+- **Sağ:** Hava kartı, takvim, anımsatıcılar, **basit SVG harita** (Boğaz, ilçeler, Dolmabahçe pin, koordinat)
+- **Alt:** OTO aç/kapat, dosya gezgini, giriş, mikrofon (halka animasyonlu), v1.1 etiketi
+
+---
+
+## 📁 Proje Yapısı
 
 ```
 KaAi/
-├── main.js              # Electron ana süreç (IPC, fs, Gemini proxy)
-├── preload.js           # Güvenli köprü
-├── package.json         # Electron + builder config
-├── src/
-│   ├── index.html       # Ana arayüz
-│   ├── styles/main.css  # Jarvis teması
-│   └── js/
-│       ├── app.js       # Uygulama mantığı, chat, timer, dosya gezgini
-│       ├── orb.js       # Canvas orb animasyonu
-│       └── bridge.js    # Python/Electron uyum katmanı
-├── app.py               # Python + pywebview alternatif
-├── requirements.txt
-├── assets/
-│   ├── icon.png
-│   └── icon.ico
-├── build.bat / build.sh
-├── build_python_exe.bat
-└── README.md
+├── main.js, preload.js, package.json  # Electron 1.1.0
+├── src/index.html, styles/main.css, js/app.js, js/orb.js, js/bridge.js
+├── app.py, requirements.txt
+├── assets/icon.png, icon.ico
+└── build.bat / build.sh / build_python_exe.bat
 ```
-
----
-
-## ❓ Sık Sorulanlar
-
-**Q: Kurucusu kim?**
-A: *Efendim, kurucum Kaan Özkurt'tur.* — Bu cevap hem yerel kural hem de Gemini sistem promptunda sabitlenmiştir.
-
-**Q: Her cevap neden “Efendim,” ile başlıyor?**
-A: Jarvis tarzı saygı için. Ayarlardan kapatılabilir.
-
-**Q: İnternetsiz çalışır mı?**
-A: Arayüz ve dosya işlemleri evet; AI cevapları için internet + API anahtarı gerekir.
-
-**Q: EXE boyutu ne kadar?**
-A: Electron ~80-120 MB (kurulum), Python ~40-60 MB.
-
-**Q: Kamerayı açıyor mu?**
-A: Hayır. Varsayılan “KAMERA KAPALI”. Gelecekte eklenebilir.
 
 ---
 
 ## 📜 Lisans
 
-MIT — © 2025 Kaan Özkurt
+MIT © 2025 Kaan Özkurt — v1.1
 
----
-
-## 🙏 Katkı
-
-PR ve issue'lar açıktır. `arena/02fb1b4d-kaai` branch'i üzerinde geliştirildi.
-
-**İyi kullanımlar, efendim!** 🎤✨
+**İyi kullanımlar, efendim!**
