@@ -1,0 +1,40 @@
+name: KaAi EXE Build
+
+on:
+  push:
+    branches: [main, "arena/*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-win:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Node deps
+        run: npm install
+      - name: Build Electron EXE
+        run: npm run build:win
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+      - name: Build Python EXE
+        run: pyinstaller --name KaAi --windowed --icon=assets/icon.ico --add-data "src;src" --add-data "assets;assets" app.py
+      - name: Upload Electron artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KaAi-Electron-EXE
+          path: dist/*.exe
+          if-no-files-found: warn
+      - name: Upload Python artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KaAi-Python-EXE
+          path: dist/KaAi/*.exe
+          if-no-files-found: warn
